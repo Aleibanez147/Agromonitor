@@ -129,12 +129,32 @@ body{font-family:var(--ff);background:var(--gc);color:var(--tp);min-height:100vh
   <div class="l-icon">🌱</div>
   <div class="l-tit">AgroMonitor</div>
   <div class="l-sub">Bandera, Santiago del Estero</div>
-  <div class="l-card">
-    <h2>Ingresá tu código</h2>
-    <p>Solo personal autorizado</p>
+  <div id="loginStep1" class="l-card">
+    <h2>¿Quién sos?</h2>
+    <p>Seleccioná tu usuario</p>
+    <button class="l-btn" onclick="elegirUsuario('admin')" style="margin-bottom:12px">👤 Alejandro Ibáñez Morales</button>
+    <button class="l-btn" onclick="elegirUsuario('operario')" style="background:#2d6a2d">👷 Monitoreador</button>
+  </div>
+  <div id="loginStep2" class="l-card" style="display:none">
+    <h2 id="loginNombreSelec">Usuario</h2>
+    <p>Ingresá tu código PIN</p>
     <div class="l-err" id="lErr">Código incorrecto. Intentá de nuevo.</div>
-    <input class="l-inp" id="lInp" type="password" placeholder="••••" inputmode="numeric" maxlength="20">
-    <button class="l-btn" onclick="loginApp()">Ingresar →</button>
+    <div id="pinDisplay" style="font-size:32px;text-align:center;letter-spacing:12px;padding:16px 0;color:#1a3a1a;min-height:64px">—</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+      <button onclick="pinPress(1)" style="padding:18px;font-size:22px;font-weight:700;border-radius:12px;border:1.5px solid #e0e0dc;background:white;cursor:pointer">1</button>
+      <button onclick="pinPress(2)" style="padding:18px;font-size:22px;font-weight:700;border-radius:12px;border:1.5px solid #e0e0dc;background:white;cursor:pointer">2</button>
+      <button onclick="pinPress(3)" style="padding:18px;font-size:22px;font-weight:700;border-radius:12px;border:1.5px solid #e0e0dc;background:white;cursor:pointer">3</button>
+      <button onclick="pinPress(4)" style="padding:18px;font-size:22px;font-weight:700;border-radius:12px;border:1.5px solid #e0e0dc;background:white;cursor:pointer">4</button>
+      <button onclick="pinPress(5)" style="padding:18px;font-size:22px;font-weight:700;border-radius:12px;border:1.5px solid #e0e0dc;background:white;cursor:pointer">5</button>
+      <button onclick="pinPress(6)" style="padding:18px;font-size:22px;font-weight:700;border-radius:12px;border:1.5px solid #e0e0dc;background:white;cursor:pointer">6</button>
+      <button onclick="pinPress(7)" style="padding:18px;font-size:22px;font-weight:700;border-radius:12px;border:1.5px solid #e0e0dc;background:white;cursor:pointer">7</button>
+      <button onclick="pinPress(8)" style="padding:18px;font-size:22px;font-weight:700;border-radius:12px;border:1.5px solid #e0e0dc;background:white;cursor:pointer">8</button>
+      <button onclick="pinPress(9)" style="padding:18px;font-size:22px;font-weight:700;border-radius:12px;border:1.5px solid #e0e0dc;background:white;cursor:pointer">9</button>
+      <button onclick="pinBorrar()" style="padding:18px;font-size:18px;border-radius:12px;border:1.5px solid #e0e0dc;background:#f5f5f3;cursor:pointer">⌫</button>
+      <button onclick="pinPress(0)" style="padding:18px;font-size:22px;font-weight:700;border-radius:12px;border:1.5px solid #e0e0dc;background:white;cursor:pointer">0</button>
+      <button onclick="pinConfirmar()" style="padding:18px;font-size:18px;border-radius:12px;border:none;background:#1a3a1a;color:white;cursor:pointer;font-weight:700">OK</button>
+    </div>
+    <button onclick="volverStep1()" style="width:100%;padding:10px;border:none;background:none;color:#888;font-size:14px;cursor:pointer">← Volver</button>
   </div>
 </div>
 
@@ -446,12 +466,43 @@ actualizarOffline();
 // ═══════════════════════════════════════
 // LOGIN
 // ═══════════════════════════════════════
-document.getElementById('lInp').addEventListener('keydown', e => { if(e.key==='Enter') loginApp(); });
+let pinActual = '';
+let rolSeleccionado = '';
 
-function loginApp() {
-  const cod = document.getElementById('lInp').value.trim();
-  const u = USUARIOS[cod];
-  if (u) {
+function elegirUsuario(rol) {
+  rolSeleccionado = rol;
+  pinActual = '';
+  document.getElementById('pinDisplay').textContent = '—';
+  document.getElementById('lErr').style.display = 'none';
+  const nombres = { admin: 'Alejandro Ibáñez', operario: 'Monitoreador' };
+  document.getElementById('loginNombreSelec').textContent = nombres[rol] || 'Usuario';
+  document.getElementById('loginStep1').style.display = 'none';
+  document.getElementById('loginStep2').style.display = '';
+}
+
+function volverStep1() {
+  document.getElementById('loginStep1').style.display = '';
+  document.getElementById('loginStep2').style.display = 'none';
+  pinActual = '';
+}
+
+function pinPress(n) {
+  if (pinActual.length >= 6) return;
+  pinActual += n.toString();
+  document.getElementById('pinDisplay').textContent = '●'.repeat(pinActual.length);
+}
+
+function pinBorrar() {
+  pinActual = pinActual.slice(0, -1);
+  document.getElementById('pinDisplay').textContent = pinActual.length ? '●'.repeat(pinActual.length) : '—';
+}
+
+function pinConfirmar() {
+  const pines = { admin: '1234', operario: '3377' };
+  if (pinActual === pines[rolSeleccionado]) {
+    const u = rolSeleccionado === 'admin'
+      ? { nombre: 'Alejandro Ibáñez Morales', rol: 'admin' }
+      : { nombre: 'Monitoreador', rol: 'operario' };
     U = u;
     localStorage.setItem('am_ses', JSON.stringify({u, ts:Date.now()}));
     document.getElementById('login').classList.add('oculto');
@@ -459,10 +510,12 @@ function loginApp() {
     renderPant('Inicio');
   } else {
     document.getElementById('lErr').style.display = 'block';
-    document.getElementById('lInp').value = '';
-    document.getElementById('lInp').focus();
+    pinActual = '';
+    document.getElementById('pinDisplay').textContent = '—';
   }
 }
+
+function loginApp() { pinConfirmar(); }
 
 function logout() {
   if (!confirm('¿Cerrar sesión?')) return;
