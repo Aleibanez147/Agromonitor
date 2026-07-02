@@ -1036,6 +1036,54 @@ function enviarWA(){
 // INFORME PDF
 // ═══════════════════════════════════════
 function abrirInformePDF() {
+  var sid = S.sesId;
+  var ses = DB.get('sesiones').find(function(s){ return s.id === sid; });
+  if (!ses) return;
+  var lot = DB.get('lotes').find(function(l){ return l.id === ses.lotId; });
+  var cam = DB.get('campos').find(function(f){ return f.id === (lot && lot.camId); });
+  var cli = DB.get('clientes').find(function(c){ return c.id === (cam && cam.cliId); });
+  var cult = getCult(ses.cultId);
+  var pans = DB.get('panadas').filter(function(p){ return p.sesId === sid; });
+  var txt = 'INFORME AGROMONITOR\n';
+  txt += 'Cliente: ' + (cli ? cli.nombre : '-') + '\n';
+  txt += 'Campo: ' + (cam ? cam.nombre : '-') + '\n';
+  txt += 'Lote: ' + (lot ? lot.nombre : '-') + '\n';
+  txt += 'Cultivo: ' + (cult ? cult.nombre : '-') + '\n';
+  txt += 'Fecha: ' + fF(ses.fecha) + '\n';
+  txt += 'Panadas: ' + pans.length + '\n';
+  alert(txt);
+}
+
+
+function enviarWA(){
+  const sid=S.sesId;
+  const ses=DB.get('sesiones').find(s=>s.id===sid);if(!ses)return;
+  const lot=DB.get('lotes').find(l=>l.id===ses.lotId);
+  const cam=DB.get('campos').find(f=>f.id===lot?.camId);
+  const cli=DB.get('clientes').find(c=>c.id===cam?.cliId);
+  const cult=getCult(ses.cultId);
+  const pans=DB.get('panadas').filter(p=>p.sesId===sid);
+  const orgM={};
+  pans.forEach(p=>(p.obs||[]).forEach(o=>{
+    if(!orgM[o.id])orgM[o.id]={...o,vals:[],pres:[],incs:[],sevs:[],estMap:{}};
+    if(o.tipo==='conteo'){orgM[o.id].vals.push(o.val||0);if(o.estadios)Object.entries(o.estadios).forEach(([k,v])=>{orgM[o.id].estMap[k]=(orgM[o.id].estMap[k]||0)+v;});}
+    else if(o.tipo==='presencia')orgM[o.id].pres.push(o.val);
+    else if(o.tipo==='inci'){if(o.inc!==undefined)orgM[o.id].incs.push(o.inc);if(o.sev!==undefined)orgM[o.id].sevs.push(o.sev);}
+  }));
+  let lineas='';
+  Object.values(orgM).forEach(o=>{
+    if(o.tipo==='conteo'){const p=(o.vals.reduce((a,b)=>a+b,0)/o.vals.length).toFixed(1);let l=`  • ${o.nombre}: ${p} ${o.u||'u'}/pañada`;if(Object.keys(o.estMap).length)l+=` (${Object.entries(o.estMap).filter(([k,v])=>v>0).map(([k,v])=>k+':'+v).join(', ')})`;lineas+=l+'\n';}
+    else if(o.tipo==='presencia'){const p=Math.round(o.pres.filter(Boolean).length/o.pres.length*100);lineas+=`  • ${o.nombre}: ${p}% de pañadas con presencia\n`;}
+    else if(o.tipo==='inci'){const pi=o.incs.length?(o.incs.reduce((a,b)=>a+b,0)/o.incs.length).toFixed(0):'-';const ps=o.sevs.length?(o.sevs.reduce((a,b)=>a+b,0)/o.sevs.length).toFixed(0):'-';lineas+=`  • ${o.nombre}: incidencia ${pi}%, severidad ${ps}%\n`;}
+  });
+  const txt=`🌱 *INFORME DE MONITOREO — AgroMonitor*\n━━━━━━━━━━━━━━━━━━━━━━\n👤 Cliente: ${cli?.nombre||'-'}\n🗺️ Campo: ${cam?.nombre||'-'}\n🌾 Lote: ${lot?.nombre||'-'}${lot?.ha?' ('+lot.ha+' ha)':''}\n🌱 Cultivo: ${cult?.nombre||'-'}\n📅 Fecha: ${fF(ses.fecha)}\n📍 Pañadas: ${pans.length}\n━━━━━━━━━━━━━━━━━━━━━━\n🔬 *RESULTADOS:*\n${lineas||'  Sin hallazgos\n'}━━━━━━━━━━━━━━━━━━━━━━\n_Generado con AgroMonitor_`;
+  window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');
+}
+
+// ═══════════════════════════════════════
+// INFORME PDF
+// ═══════════════════════════════════════
+function abrirInformePDF() {
   const sid = S.sesId;
   const ses = DB.get('sesiones').find(s => s.id === sid); if (!ses) return;
   const lot = DB.get('lotes').find(l => l.id === ses.lotId);
