@@ -2,74 +2,91 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#1a3a1a">
 <title>AgroMonitor</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<!-- Login functions - cargadas primero para que los botones funcionen -->
+
+<!-- LOGIN - debe cargarse primero, antes que cualquier otro script -->
 <script>
 var _pin = '';
-var _u = {'1234':{nombre:'Alejandro Ibáñez Morales',rol:'admin'},'3377':{nombre:'Monitoreador',rol:'operario'}};
-function pP(n){if(_pin.length>=6)return;_pin+=String(n);var d=document.getElementById('pinDisplay');if(d)d.textContent='●'.repeat(_pin.length);}
-function pB(){_pin=_pin.slice(0,-1);var d=document.getElementById('pinDisplay');if(d)d.textContent=_pin.length?'●'.repeat(_pin.length):'—';}
-function pOK(){
-  var u=_u[_pin];
-  if(u){
-    try{localStorage.setItem('am_ses',JSON.stringify({u:u,ts:Date.now()}));}catch(e){}
-    var login=document.getElementById('login');
-    var app=document.getElementById('app');
-    if(login)login.classList.add('oculto');
-    if(app)app.style.display='';
-    if(typeof renderPant==='function')renderPant('Inicio');
-    else setTimeout(function(){if(typeof renderPant==='function')renderPant('Inicio');},500);
-  }else{
-    var err=document.getElementById('lErr');
-    if(err)err.style.display='block';
-    _pin='';
-    var d=document.getElementById('pinDisplay');
-    if(d)d.textContent='—';
+var _usuarios = {
+  '1234': {nombre:'Alejandro Ibáñez Morales', rol:'admin'},
+  '3377': {nombre:'Monitoreador', rol:'operario'}
+};
+function pP(n) {
+  if (_pin.length >= 6) return;
+  _pin = _pin + String(n);
+  var d = document.getElementById('pinDisplay');
+  if (d) d.textContent = new Array(_pin.length + 1).join('●');
+}
+function pB() {
+  _pin = _pin.slice(0, -1);
+  var d = document.getElementById('pinDisplay');
+  if (d) d.textContent = _pin.length ? new Array(_pin.length + 1).join('●') : '—';
+}
+function pOK() {
+  var u = _usuarios[_pin];
+  if (u) {
+    try { localStorage.setItem('am_ses', JSON.stringify({u:u, ts:Date.now()})); } catch(e) {}
+    var login = document.getElementById('login');
+    var app = document.getElementById('app');
+    if (login) { login.style.display = 'none'; }
+    if (app) { app.style.display = ''; }
+    window._usuarioActivo = u;
+    sincronizarYArrancar();
+  } else {
+    _pin = '';
+    var d = document.getElementById('pinDisplay');
+    if (d) d.textContent = '—';
+    var err = document.getElementById('lErr');
+    if (err) { err.style.display = 'block'; setTimeout(function(){ err.style.display='none'; }, 2000); }
   }
 }
 </script>
+
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
-const firebaseConfig = {
+firebase.initializeApp({
   apiKey: "AIzaSyD5K1Aaw0v5a6fhYmEmjEGByebvXLUad7o",
   authDomain: "agromonitor-e2097.firebaseapp.com",
   projectId: "agromonitor-e2097",
   storageBucket: "agromonitor-e2097.firebasestorage.app",
   messagingSenderId: "41620431429",
   appId: "1:41620431429:web:af9e6a547d86d78cdbb92c"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+});
+var fdb = firebase.firestore();
 </script>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <style>
 :root{--vd:#1a3a1a;--vm:#2d6a2d;--vc:#4a9c4a;--vs:#e8f5e8;--vb:#c5e0c5;--am:#d4820a;--as2:#fef3e2;--ro:#c0392b;--rs:#fdecea;--gm:#6b6b6b;--gc:#f4f4f2;--gb:#e0e0dc;--bl:#ffffff;--tp:#1a1a1a;--ts:#555;--r:12px;--rg:20px;--ff:'Segoe UI',system-ui,sans-serif}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:var(--ff);background:var(--gc);color:var(--tp);min-height:100vh;max-width:480px;margin:0 auto}
 #login{display:flex;position:fixed;inset:0;background:var(--vd);z-index:9000;flex-direction:column;align-items:center;justify-content:center;padding:24px}
-#login.oculto{display:none}
 .l-icon{width:76px;height:76px;background:var(--vm);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:38px;margin:0 auto 14px;border:2px solid var(--vc)}
 .l-tit{font-size:26px;font-weight:700;color:white;text-align:center}
 .l-sub{font-size:13px;color:#7ab87a;margin-top:4px;text-align:center;margin-bottom:28px}
 .l-card{background:white;border-radius:18px;padding:24px 20px;width:100%;max-width:340px}
-.l-card h2{font-size:17px;font-weight:700;margin-bottom:4px}
-.l-card p{font-size:13px;color:#777;margin-bottom:18px}
 .l-err{background:#fdecea;border:1px solid #f5c6c3;color:#8a1f18;padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;display:none}
-.l-inp{width:100%;padding:14px;border:1.5px solid #e0e0dc;border-radius:11px;font-size:20px;text-align:center;letter-spacing:0.3em;font-family:var(--ff);color:#1a1a1a;margin-bottom:14px}
-.l-inp:focus{outline:none;border-color:var(--vc)}
-.l-btn{width:100%;padding:15px;background:var(--vd);color:white;border:none;border-radius:11px;font-size:16px;font-weight:700;cursor:pointer;font-family:var(--ff)}
+#pinDisplay{font-size:36px;text-align:center;letter-spacing:14px;padding:14px;color:var(--vd);background:#f5f5f3;border-radius:10px;margin-bottom:14px;min-height:60px}
+.pin-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.pbt{padding:18px;font-size:20px;font-weight:700;border-radius:10px;border:1.5px solid #e0e0dc;background:white;cursor:pointer;font-family:var(--ff);transition:background .1s}
+.pbt:active{background:#e8f5e8}
+.pbt-ok{background:var(--vd);color:white;border-color:var(--vd)}
+.pbt-ok:active{background:var(--vm)}
+.pbt-del{background:#f5f5f3;color:#555}
 .hdr{background:var(--vd);color:white;padding:13px 16px 11px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
 .hdr-back{background:none;border:none;color:white;font-size:22px;cursor:pointer;padding:4px 8px 4px 0;display:none}
 .hdr-back.vis{display:block}
 .hdr-logo{width:30px;height:30px;background:var(--vc);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
 .hdr-tit{font-size:16px;font-weight:600;flex:1}
-.hdr-out{background:none;border:none;color:rgba(255,255,255,0.55);font-size:20px;cursor:pointer;padding:4px 0 4px 8px}
+.hdr-out{background:none;border:none;color:rgba(255,255,255,.55);font-size:20px;cursor:pointer;padding:4px 0 4px 8px}
 .pant{display:none;padding:16px;animation:fi .2s ease}
 .pant.act{display:block}
 @keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
@@ -109,9 +126,8 @@ body{font-family:var(--ff);background:var(--gc);color:var(--tp);min-height:100vh
 .ale{padding:12px 16px;border-radius:var(--r);margin-bottom:12px;font-size:14px;display:flex;gap:10px;align-items:flex-start}
 .ale-v{background:var(--vs);border:1px solid var(--vb);color:var(--vd)}
 .ale-a{background:var(--as2);border:1px solid #f5d99a;color:#6b4100}
-.ale-r{background:var(--rs);border:1px solid #f5c6c3;color:#8a1f18}
 .badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700}
-.bv{background:var(--vs);color:var(--vd)}.ba2{background:var(--as2);color:#8a5200}.bg2{background:var(--gc);color:var(--gm);border:1px solid var(--gb)}
+.bv{background:var(--vs);color:var(--vd)}.bg2{background:var(--gc);color:var(--gm);border:1px solid var(--gb)}
 .pan-it{background:var(--bl);border:1px solid var(--gb);border-radius:var(--r);margin-bottom:8px;overflow:hidden}
 .pan-hd{padding:12px 14px;display:flex;align-items:center;gap:10px;background:var(--gc)}
 .pan-n{width:28px;height:28px;border-radius:50%;background:var(--vd);color:white;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -139,6 +155,11 @@ body{font-family:var(--ff);background:var(--gc);color:var(--tp);min-height:100vh
 @keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .modal-h{width:38px;height:4px;background:var(--gb);border-radius:2px;margin:0 auto 14px}
 .modal-t{font-size:17px;font-weight:700;margin-bottom:14px}
+.org-card{background:var(--gc);border-radius:var(--r);padding:12px;margin-bottom:12px;border:1px solid var(--gb)}
+.org-nombre{font-size:14px;font-weight:700;margin-bottom:8px}
+.estadio-sel{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.est-btn{padding:6px 12px;border-radius:99px;border:1.5px solid var(--gb);font-size:13px;cursor:pointer;background:var(--bl);color:var(--ts);transition:all .15s}
+.est-btn.on{background:var(--vd);border-color:var(--vd);color:white;font-weight:600}
 .mapa-full{display:none;position:fixed;inset:0;z-index:600;flex-direction:column;background:#1a3a1a}
 .mapa-full.ab{display:flex}
 .mapa-hdr{padding:13px 16px;display:flex;align-items:center;gap:12px;background:var(--vd);flex-shrink:0}
@@ -148,55 +169,48 @@ body{font-family:var(--ff);background:var(--gc);color:var(--tp);min-height:100vh
 #mapaDiv{flex:1}
 .mapa-bar{padding:12px 16px;background:var(--bl);border-top:1px solid var(--gb);flex-shrink:0}
 .mapa-coord{font-size:13px;color:var(--gm);text-align:center;margin-bottom:10px}
-.foto-prev{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-.foto-thumb{width:72px;height:72px;border-radius:8px;object-fit:cover;border:1.5px solid var(--gb)}
-.foto-add{width:72px;height:72px;border-radius:8px;border:2px dashed var(--gb);display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;background:var(--gc);color:var(--gm)}
-.estadio-sel{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.est-btn{padding:6px 12px;border-radius:99px;border:1.5px solid var(--gb);font-size:13px;cursor:pointer;background:var(--bl);color:var(--ts);transition:all .15s}
-.est-btn.on{background:var(--vd);border-color:var(--vd);color:white;font-weight:600}
-.org-card{background:var(--gc);border-radius:var(--r);padding:12px;margin-bottom:12px;border:1px solid var(--gb)}
-.org-nombre{font-size:14px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
-.ia-panel{background:var(--vd);border-radius:var(--r);padding:16px;margin-bottom:12px;color:white}
-.ia-titulo{font-size:15px;font-weight:700;margin-bottom:4px}
-.ia-sub{font-size:13px;opacity:.75;margin-bottom:14px}
-.ia-result{background:rgba(255,255,255,.1);border-radius:10px;padding:12px;font-size:14px;margin-top:10px;display:none}
-.offline-banner{background:#f5d99a;border-bottom:2px solid #d4820a;padding:6px 16px;font-size:12px;font-weight:600;color:#6b4100;text-align:center;display:none}
+.sync-banner{background:#e8f5e8;border-bottom:2px solid var(--vc);padding:6px 16px;font-size:12px;font-weight:600;color:var(--vd);text-align:center;display:none}
+.offline-banner{background:#fef3e2;border-bottom:2px solid var(--am);padding:6px 16px;font-size:12px;font-weight:600;color:#6b4100;text-align:center;display:none}
 </style>
 </head>
 <body>
 
+<!-- LOGIN -->
 <div id="login">
   <div class="l-icon">🌱</div>
   <div class="l-tit">AgroMonitor</div>
   <div class="l-sub">Bandera, Santiago del Estero</div>
   <div class="l-card">
-    <div id="lErr" style="background:#fdecea;border:1px solid #f5c6c3;color:#8a1f18;padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;display:none">PIN incorrecto</div>
-    <div id="pinDisplay" style="font-size:36px;text-align:center;letter-spacing:14px;padding:14px;color:#1a3a1a;background:#f5f5f3;border-radius:10px;margin-bottom:14px">—</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(1)">1</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(2)">2</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(3)">3</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(4)">4</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(5)">5</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(6)">6</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(7)">7</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(8)">8</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(9)">9</button>
-      <button style="padding:18px;font-size:18px;border-radius:10px;border:1.5px solid #ddd;background:#f5f5f3;cursor:pointer" onclick="window.pB()">⌫</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(0)">0</button>
-      <button style="padding:18px;font-size:16px;font-weight:700;border-radius:10px;border:none;background:#1a3a1a;color:white;cursor:pointer" onclick="window.pOK()">OK</button>
+    <div class="l-err" id="lErr">PIN incorrecto. Intentá de nuevo.</div>
+    <div id="pinDisplay">—</div>
+    <div class="pin-grid">
+      <button class="pbt" onclick="pP(1)">1</button>
+      <button class="pbt" onclick="pP(2)">2</button>
+      <button class="pbt" onclick="pP(3)">3</button>
+      <button class="pbt" onclick="pP(4)">4</button>
+      <button class="pbt" onclick="pP(5)">5</button>
+      <button class="pbt" onclick="pP(6)">6</button>
+      <button class="pbt" onclick="pP(7)">7</button>
+      <button class="pbt" onclick="pP(8)">8</button>
+      <button class="pbt" onclick="pP(9)">9</button>
+      <button class="pbt pbt-del" onclick="pB()">⌫</button>
+      <button class="pbt" onclick="pP(0)">0</button>
+      <button class="pbt pbt-ok" onclick="pOK()">OK</button>
     </div>
   </div>
 </div>
+
+<!-- APP -->
 <div id="app" style="display:none">
-<div class="offline-banner" id="offBanner">📵 Sin conexión — los datos se guardan localmente y se sincronizarán automáticamente</div>
+<div class="sync-banner" id="syncBanner">☁️ Sincronizando con la nube...</div>
+<div class="offline-banner" id="offBanner">📵 Sin conexión — trabajando offline</div>
 
 <div class="hdr">
   <button class="hdr-back" id="hBack" onclick="atras()">←</button>
   <div class="hdr-logo">🌱</div>
   <div style="flex:1">
     <div class="hdr-tit" id="hTit">AgroMonitor</div>
-    <div style="font-size:11px;opacity:.65" id="hSub">Bandera, Sgo. del Estero</div>
+    <div style="font-size:11px;opacity:.65">Bandera, Sgo. del Estero</div>
   </div>
   <button class="hdr-out" onclick="logout()" title="Cerrar sesión">⏻</button>
 </div>
@@ -219,8 +233,7 @@ body{font-family:var(--ff);background:var(--gc);color:var(--tp);min-height:100vh
 
 <div class="pant" id="pMonitoreo">
   <div class="ale ale-v" id="infoCult"></div>
-  <!-- botón para cambiar cultivo si se equivocó -->
-  <button class="btn bs" id="btnCambiarCult" onclick="cambiarCultMonitoreo()" style="margin-bottom:14px;font-size:14px;padding:10px">🔄 Cambiar cultivo</button>
+  <button class="btn bs" onclick="cambiarCultMonitoreo()" style="margin-bottom:14px;font-size:14px;padding:10px">🔄 Cambiar cultivo</button>
   <div class="stit">Pañadas registradas</div>
   <div id="listaPanadas"></div>
   <button class="btn bs" onclick="abrirM('mPanada')">📍 Nueva pañada</button>
@@ -232,27 +245,18 @@ body{font-family:var(--ff);background:var(--gc);color:var(--tp);min-height:100vh
 <div class="pant" id="pInforme">
   <div id="contInforme"></div>
   <div id="mapaInforme" style="height:260px;border-radius:var(--r);overflow:hidden;margin-bottom:12px;border:1px solid var(--gb)"></div>
-  <button class="btn bp" onclick="abrirInformePDF()">📄 Ver informe completo</button>
-  <button class="btn bs" onclick="enviarWA()">📲 Enviar resumen por WhatsApp</button>
+  <button class="btn bp" onclick="enviarWA()">📲 Enviar por WhatsApp</button>
   <button class="btn bs" onclick="irInicio()">🏠 Volver al inicio</button>
   <div class="esp"></div>
 </div>
 
 <div class="pant" id="pHistorial"><div id="listaHist"></div><div class="esp"></div></div>
+
 <div class="pant" id="pConfig">
   <div class="stit">Cultivos disponibles</div><div id="listaCultConf"></div>
   <button class="btn bs" onclick="abrirM('mCultivo')">+ Agregar cultivo</button>
   <div class="sep"></div>
-  <div class="stit">Identificador de plagas con IA</div>
-  <div class="ia-panel">
-    <div class="ia-titulo">🤖 Identificar plaga o enfermedad</div>
-    <div class="ia-sub">Sacá una foto y la IA te dice qué es y cómo manejarlo</div>
-    <input type="file" id="iaFotoInput" accept="image/*" capture="environment" style="display:none" onchange="analizarFotoIA(this)">
-    <button class="btn bs" onclick="document.getElementById('iaFotoInput').click()" style="color:white;background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);margin-bottom:0">📷 Tomar foto para identificar</button>
-    <div class="ia-result" id="iaResult"></div>
-  </div>
-  <div class="sep"></div>
-  <div class="card"><div style="padding:16px;font-size:14px;color:var(--ts);line-height:1.6">AgroMonitor v2.0<br>Zona: Bandera, Santiago del Estero<br>Funciona offline · Datos guardados localmente</div></div>
+  <div class="card"><div style="padding:16px;font-size:14px;color:var(--ts);line-height:1.6">AgroMonitor v2.0<br>Zona: Bandera, Santiago del Estero<br>Sincronización en la nube activa ☁️</div></div>
   <div class="esp"></div>
 </div>
 
@@ -286,7 +290,7 @@ body{font-family:var(--ff);background:var(--gc);color:var(--tp);min-height:100vh
   <div class="fg"><label class="fl">Nombre *</label><input class="fi2" id="iNomLot" type="text" placeholder="Ej: Lote 1 Norte"></div>
   <div class="fg"><label class="fl">Superficie (ha)</label><input class="fi2" id="iHaLot" type="number" placeholder="80"></div>
   <div class="fg">
-    <label class="fl">Ubicación del lote</label>
+    <label class="fl">Ubicación</label>
     <div style="display:flex;gap:8px;margin-bottom:8px">
       <button class="btn bs btn-sm" onclick="gpsAutoLote()" id="bGps" style="flex:1">📍 Mi ubicación</button>
       <button class="btn bs btn-sm" onclick="abrirMapaLote()" style="flex:1">🗺️ Elegir en mapa</button>
@@ -301,28 +305,24 @@ body{font-family:var(--ff);background:var(--gc);color:var(--tp);min-height:100vh
 <div class="modal" id="mPanada"><div class="modal-c">
   <div class="modal-h"></div>
   <div class="modal-t" id="mPanadaTit">Pañada #1</div>
-  <div class="ale ale-v" style="font-size:13px">📍 El GPS se captura automáticamente al guardar</div>
-
-  <!-- IDENTIFICADOR IA dentro de pañada -->
+  <div class="ale ale-v" style="font-size:13px">📍 GPS se captura automáticamente al guardar</div>
   <div style="background:var(--vd);border-radius:var(--r);padding:14px;margin-bottom:14px">
     <div style="color:white;font-size:14px;font-weight:700;margin-bottom:4px">🤖 ¿Dudás de una plaga?</div>
     <div style="color:rgba(255,255,255,.75);font-size:12px;margin-bottom:10px">Sacá una foto y la IA la identifica</div>
-    <input type="file" id="iaFotoEnPanada" accept="image/*" capture="environment" style="display:none" onchange="analizarFotoIA(this)">
+    <input type="file" id="iaFotoEnPanada" accept="image/*" capture="environment" style="display:none" onchange="analizarFotoIA(this,'iaResultPan')">
     <button class="btn bs btn-sm" onclick="document.getElementById('iaFotoEnPanada').click()" style="color:white;background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);width:100%;padding:10px">📷 Identificar con foto</button>
-    <div class="ia-result" id="iaResultPan"></div>
+    <div id="iaResultPan" style="background:rgba(255,255,255,.1);border-radius:10px;padding:12px;font-size:13px;color:white;margin-top:10px;display:none"></div>
   </div>
-
   <div class="stit">Plagas</div><div id="fPlagas"></div>
   <div class="stit">Enfermedades</div><div id="fEnf"></div>
-
-  <!-- FOTOS DE LA PAÑADA -->
-  <div class="stit">Fotos de la pañada</div>
-  <div class="foto-prev" id="fotoPrevWrap">
-    <div class="foto-add" onclick="document.getElementById('fotoPanInput').click()">+</div>
+  <div class="fg" style="margin-top:8px">
+    <div class="stit" style="margin-top:0">Fotos</div>
+    <div id="fotoPrevWrap" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
+      <div onclick="document.getElementById('fotoPanInput').click()" style="width:72px;height:72px;border-radius:8px;border:2px dashed var(--gb);display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;background:var(--gc);color:var(--gm)">+</div>
+    </div>
+    <input type="file" id="fotoPanInput" accept="image/*" capture="environment" style="display:none" multiple onchange="agregarFotosPanada(this)">
   </div>
-  <input type="file" id="fotoPanInput" accept="image/*" capture="environment" style="display:none" multiple onchange="agregarFotosPanada(this)">
-
-  <div class="fg" style="margin-top:12px"><label class="fl">Notas</label><textarea class="fta" id="iNotPan" placeholder="Observaciones..." style="min-height:55px"></textarea></div>
+  <div class="fg"><label class="fl">Notas</label><textarea class="fta" id="iNotPan" placeholder="Observaciones..." style="min-height:55px"></textarea></div>
   <button class="btn bp" onclick="guardarPanada()">Guardar pañada</button>
   <button class="btn bs" onclick="cerrarM('mPanada')">Cancelar</button>
 </div></div>
@@ -334,23 +334,18 @@ body{font-family:var(--ff);background:var(--gc);color:var(--tp);min-height:100vh
   <button class="btn bs" onclick="cerrarM('mCultivo')">Cancelar</button>
 </div></div>
 
-<!-- MODAL CAMBIAR CULTIVO EN MONITOREO -->
 <div class="modal" id="mCambiarCult"><div class="modal-c">
   <div class="modal-h"></div>
   <div class="modal-t">Cambiar cultivo</div>
-  <div class="ale ale-a" style="font-size:13px">⚠️ Cambiar el cultivo borrará las pañadas ya registradas en este monitoreo.</div>
+  <div class="ale ale-a" style="font-size:13px">⚠️ Cambiar el cultivo borrará las pañadas ya registradas.</div>
   <div class="chips" id="chipsCambiarCult" style="margin-bottom:16px"></div>
   <button class="btn bs" onclick="cerrarM('mCambiarCult')">Cancelar</button>
 </div></div>
 
-<!-- MAPA FULLSCREEN PARA LOTE -->
 <div class="mapa-full" id="mapaPanel">
   <div class="mapa-hdr">
     <button class="mapa-hdr-back" onclick="cerrarMapa()">←</button>
-    <div>
-      <div class="mapa-hdr-tit">Ubicar lote</div>
-      <div class="mapa-hdr-sub" id="mapaInstr">Tocá el mapa para colocar el PIN</div>
-    </div>
+    <div><div class="mapa-hdr-tit">Ubicar lote</div><div class="mapa-hdr-sub" id="mapaInstr">Tocá el mapa para colocar el PIN</div></div>
   </div>
   <div id="mapaDiv"></div>
   <div class="mapa-bar">
@@ -360,250 +355,177 @@ body{font-family:var(--ff);background:var(--gc);color:var(--tp);min-height:100vh
 </div>
 
 <script>
-// ═══════════════════════════════════════
-// CATÁLOGO DE CULTIVOS (sin malezas)
-// ═══════════════════════════════════════
-const CAT = [
-  { id:'soja', nombre:'Soja',
-    plagas:[
-      {id:'trips',nombre:'Trips',tipo:'presencia'},
-      {id:'aranuela',nombre:'Arañuela',tipo:'presencia'},
-      {id:'oruga_def',nombre:'Orugas defoliadoras',tipo:'conteo',u:'por paño',
-        estadios:['L1','L2','L3','L4','L5','L6']},
-      {id:'picudo',nombre:'Picudo negro',tipo:'conteo',u:'por paño'},
-      {id:'chinche',nombre:'Chinche verde',tipo:'conteo',u:'por paño',
-        estadios:['Ninfa','Adulto']},
-      {id:'medidora',nombre:'Oruga medidora',tipo:'conteo',u:'por paño',
-        estadios:['L1','L2','L3','L4','L5']},
-      {id:'isoca',nombre:'Isoca bolsa',tipo:'conteo',u:'por paño'},
-    ],
-    enf:[
-      {id:'roya',nombre:'Roya asiática',tipo:'inci'},
-      {id:'m_purp',nombre:'Mancha púrpura',tipo:'inci'},
-      {id:'m_marron',nombre:'Mancha marrón',tipo:'inci'},
-      {id:'oidio',nombre:'Oídio',tipo:'inci'},
-      {id:'pod_tallo',nombre:'Podredumbre del tallo',tipo:'inci'},
-    ]
-  },
-  { id:'maiz', nombre:'Maíz',
-    plagas:[
-      {id:'cogollero',nombre:'Gusano cogollero',tipo:'conteo',u:'plantas/100',
-        estadios:['L1','L2','L3','L4','L5','L6']},
-      {id:'trips_m',nombre:'Trips',tipo:'presencia'},
-      {id:'pulgon_m',nombre:'Pulgón',tipo:'presencia'},
-      {id:'chicharrita',nombre:'Chicharrita',tipo:'presencia'},
-    ],
-    enf:[
-      {id:'tizon_n',nombre:'Tizón del norte',tipo:'inci'},
-      {id:'roya_m',nombre:'Roya común',tipo:'inci'},
-      {id:'achaparr',nombre:'Achaparramiento (chicharrita)',tipo:'inci'},
-    ]
-  },
-  { id:'trigo', nombre:'Trigo',
-    plagas:[
-      {id:'pulgon_t',nombre:'Pulgón del trigo',tipo:'conteo',u:'por tallo',
-        estadios:['Ninfa','Adulto']},
-      {id:'trips_t',nombre:'Trips',tipo:'presencia'},
-      {id:'orugas_t',nombre:'Orugas',tipo:'conteo',u:'por paño',
-        estadios:['L1','L2','L3','L4','L5']},
-    ],
-    enf:[
-      {id:'roya_a',nombre:'Roya amarilla',tipo:'inci'},
-      {id:'roya_h',nombre:'Roya de la hoja',tipo:'inci'},
-      {id:'roya_neg',nombre:'Roya negra',tipo:'inci'},
-      {id:'mancha_am',nombre:'Mancha amarilla',tipo:'inci'},
-      {id:'fusario',nombre:'Fusariosis espiga',tipo:'inci'},
-      {id:'septoria',nombre:'Septoria',tipo:'inci'},
-    ]
-  },
-  { id:'girasol', nombre:'Girasol',
-    plagas:[
-      {id:'barren',nombre:'Barrenador del tallo',tipo:'conteo',u:'por paño'},
-      {id:'chinche_g',nombre:'Chinche',tipo:'conteo',u:'por paño',
-        estadios:['Ninfa','Adulto']},
-      {id:'orugas_g',nombre:'Orugas defoliadoras',tipo:'conteo',u:'por paño',
-        estadios:['L1','L2','L3','L4','L5']},
-    ],
-    enf:[
-      {id:'sclero',nombre:'Sclerotinia',tipo:'inci'},
-      {id:'verti',nombre:'Verticillium',tipo:'inci'},
-    ]
-  },
-  { id:'sorgo', nombre:'Sorgo',
-    plagas:[
-      {id:'cogol_s',nombre:'Gusano cogollero',tipo:'conteo',u:'por paño',
-        estadios:['L1','L2','L3','L4','L5','L6']},
-      {id:'pulgon_v',nombre:'Pulgón verde',tipo:'presencia'},
-    ],
-    enf:[{id:'carbon_s',nombre:'Carbón cubierto',tipo:'inci'}]
-  },
-  { id:'algodon', nombre:'Algodón',
-    plagas:[
-      {id:'picudo_a',nombre:'Picudo del algodón',tipo:'conteo',u:'por paño'},
-      {id:'trips_a',nombre:'Trips',tipo:'presencia'},
-      {id:'mosca_b',nombre:'Mosca blanca',tipo:'presencia'},
-      {id:'arana_r',nombre:'Araña roja',tipo:'presencia'},
-    ],
-    enf:[
-      {id:'ramul',nombre:'Ramularia',tipo:'inci'},
-      {id:'bacte',nombre:'Bacteriosis angular',tipo:'inci'},
-    ]
-  },
-  { id:'alfalfa', nombre:'Alfalfa',
-    plagas:[
-      {id:'pulgon_alf',nombre:'Pulgón de la alfalfa',tipo:'presencia'},
-      {id:'isoca_alf',nombre:'Isoca medidora',tipo:'conteo',u:'por paño',
-        estadios:['L1','L2','L3','L4','L5']},
-    ],
-    enf:[{id:'verti_a',nombre:'Verticillium',tipo:'inci'}]
-  },
-  { id:'centeno', nombre:'Centeno', plagas:[], enf:[] },
-  { id:'cebada', nombre:'Cebada', plagas:[], enf:[] },
-  { id:'vicia', nombre:'Vicia', plagas:[], enf:[] },
-  { id:'triticale', nombre:'Triticale', plagas:[], enf:[] },
+// ═══ CATÁLOGO ═══
+var CAT = [
+  {id:'soja',nombre:'Soja',plagas:[
+    {id:'trips',nombre:'Trips',tipo:'presencia'},
+    {id:'aranuela',nombre:'Arañuela',tipo:'presencia'},
+    {id:'oruga_def',nombre:'Orugas defoliadoras',tipo:'conteo',u:'por paño',estadios:['L1','L2','L3','L4','L5','L6']},
+    {id:'picudo',nombre:'Picudo negro',tipo:'conteo',u:'por paño'},
+    {id:'chinche',nombre:'Chinche verde',tipo:'conteo',u:'por paño',estadios:['Ninfa','Adulto']},
+    {id:'medidora',nombre:'Oruga medidora',tipo:'conteo',u:'por paño',estadios:['L1','L2','L3','L4','L5']}
+  ],enf:[
+    {id:'roya',nombre:'Roya asiática',tipo:'inci'},
+    {id:'m_purp',nombre:'Mancha púrpura',tipo:'inci'},
+    {id:'m_marron',nombre:'Mancha marrón',tipo:'inci'},
+    {id:'oidio',nombre:'Oídio',tipo:'inci'},
+    {id:'pod_tallo',nombre:'Podredumbre del tallo',tipo:'inci'}
+  ]},
+  {id:'maiz',nombre:'Maíz',plagas:[
+    {id:'cogollero',nombre:'Gusano cogollero',tipo:'conteo',u:'plantas/100',estadios:['L1','L2','L3','L4','L5','L6']},
+    {id:'trips_m',nombre:'Trips',tipo:'presencia'},
+    {id:'pulgon_m',nombre:'Pulgón',tipo:'presencia'},
+    {id:'chicharrita',nombre:'Chicharrita',tipo:'presencia'}
+  ],enf:[
+    {id:'tizon_n',nombre:'Tizón del norte',tipo:'inci'},
+    {id:'roya_m',nombre:'Roya común',tipo:'inci'},
+    {id:'achaparr',nombre:'Achaparramiento',tipo:'inci'}
+  ]},
+  {id:'trigo',nombre:'Trigo',plagas:[
+    {id:'pulgon_t',nombre:'Pulgón del trigo',tipo:'conteo',u:'por tallo',estadios:['Ninfa','Adulto']},
+    {id:'trips_t',nombre:'Trips',tipo:'presencia'},
+    {id:'orugas_t',nombre:'Orugas',tipo:'conteo',u:'por paño',estadios:['L1','L2','L3','L4','L5']}
+  ],enf:[
+    {id:'roya_a',nombre:'Roya amarilla',tipo:'inci'},
+    {id:'roya_h',nombre:'Roya de la hoja',tipo:'inci'},
+    {id:'roya_neg',nombre:'Roya negra',tipo:'inci'},
+    {id:'mancha_am',nombre:'Mancha amarilla',tipo:'inci'},
+    {id:'fusario',nombre:'Fusariosis espiga',tipo:'inci'},
+    {id:'septoria',nombre:'Septoria',tipo:'inci'}
+  ]},
+  {id:'girasol',nombre:'Girasol',plagas:[
+    {id:'barren',nombre:'Barrenador del tallo',tipo:'conteo',u:'por paño'},
+    {id:'chinche_g',nombre:'Chinche',tipo:'conteo',u:'por paño',estadios:['Ninfa','Adulto']},
+    {id:'orugas_g',nombre:'Orugas defoliadoras',tipo:'conteo',u:'por paño',estadios:['L1','L2','L3','L4','L5']}
+  ],enf:[
+    {id:'sclero',nombre:'Sclerotinia',tipo:'inci'},
+    {id:'verti',nombre:'Verticillium',tipo:'inci'}
+  ]},
+  {id:'sorgo',nombre:'Sorgo',plagas:[
+    {id:'cogol_s',nombre:'Gusano cogollero',tipo:'conteo',u:'por paño',estadios:['L1','L2','L3','L4','L5','L6']},
+    {id:'pulgon_v',nombre:'Pulgón verde',tipo:'presencia'}
+  ],enf:[{id:'carbon_s',nombre:'Carbón cubierto',tipo:'inci'}]},
+  {id:'algodon',nombre:'Algodón',plagas:[
+    {id:'picudo_a',nombre:'Picudo del algodón',tipo:'conteo',u:'por paño'},
+    {id:'trips_a',nombre:'Trips',tipo:'presencia'},
+    {id:'mosca_b',nombre:'Mosca blanca',tipo:'presencia'},
+    {id:'arana_r',nombre:'Araña roja',tipo:'presencia'}
+  ],enf:[
+    {id:'ramul',nombre:'Ramularia',tipo:'inci'},
+    {id:'bacte',nombre:'Bacteriosis angular',tipo:'inci'}
+  ]},
+  {id:'alfalfa',nombre:'Alfalfa',plagas:[
+    {id:'pulgon_alf',nombre:'Pulgón de la alfalfa',tipo:'presencia'},
+    {id:'isoca_alf',nombre:'Isoca medidora',tipo:'conteo',u:'por paño',estadios:['L1','L2','L3','L4','L5']}
+  ],enf:[{id:'verti_a',nombre:'Verticillium',tipo:'inci'}]},
+  {id:'centeno',nombre:'Centeno',plagas:[],enf:[]},
+  {id:'cebada',nombre:'Cebada',plagas:[],enf:[]},
+  {id:'vicia',nombre:'Vicia',plagas:[],enf:[]},
+  {id:'triticale',nombre:'Triticale',plagas:[],enf:[]}
 ];
 
-// ═══════════════════════════════════════
-// DB LOCAL
-// ═══════════════════════════════════════
-const DB = {
-  get: k => { try { return JSON.parse(localStorage.getItem('am_'+k)) || [] } catch { return [] } },
-  set: (k,v) => {
+// ═══ DB LOCAL + FIREBASE SYNC ═══
+var DB = {
+  get: function(k) { try { return JSON.parse(localStorage.getItem('am_'+k)) || []; } catch(e) { return []; } },
+  set: function(k, v) {
     localStorage.setItem('am_'+k, JSON.stringify(v));
-    // Sincronizar con Firebase en background
     try {
-      db.collection('agromonitor').doc(k).set({ data: JSON.stringify(v), ts: Date.now() })
-        .catch(e => console.log('Firebase sync error:', e));
+      fdb.collection('agro').doc(k).set({data: JSON.stringify(v), ts: Date.now()})
+        .catch(function(e){ console.log('sync err:', e.message); });
     } catch(e) {}
   },
-  id: () => Date.now().toString(36)+Math.random().toString(36).slice(2,5)
+  id: function() { return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
 };
 
-// Sincronizar desde Firebase al iniciar
-async function sincronizarDesdeFirebase() {
-  try {
-    const colecciones = ['clientes','campos','lotes','sesiones','panadas','cultivos_ex'];
-    for (const col of colecciones) {
-      const doc = await db.collection('agromonitor').doc(col).get();
+// ═══ SYNC FIREBASE ═══
+function sincronizarYArrancar() {
+  var cols = ['clientes','campos','lotes','sesiones','panadas','cultivos_ex'];
+  var sb = document.getElementById('syncBanner');
+  if (sb) sb.style.display = 'block';
+  
+  var promesas = cols.map(function(col) {
+    return fdb.collection('agro').doc(col).get().then(function(doc) {
       if (doc.exists) {
-        const remoto = JSON.parse(doc.data().data || '[]');
-        const local = DB.get(col);
-        // Merge: combinar datos remotos y locales sin duplicados
-        const merged = [...remoto];
-        local.forEach(item => {
-          if (!merged.find(r => r.id === item.id)) merged.push(item);
+        var remoto = JSON.parse(doc.data().data || '[]');
+        var local = DB.get(col);
+        var merged = remoto.slice();
+        local.forEach(function(item) {
+          if (!merged.find(function(r){ return r.id === item.id; })) {
+            merged.push(item);
+          }
         });
         localStorage.setItem('am_'+col, JSON.stringify(merged));
-        // Subir merge a Firebase
-        db.collection('agromonitor').doc(col).set({ data: JSON.stringify(merged), ts: Date.now() });
-      } else if (DB.get(col).length > 0) {
-        // Subir datos locales a Firebase
-        db.collection('agromonitor').doc(col).set({ data: JSON.stringify(DB.get(col)), ts: Date.now() });
+        fdb.collection('agro').doc(col).set({data: JSON.stringify(merged), ts: Date.now()});
+      } else {
+        var local = DB.get(col);
+        if (local.length > 0) {
+          fdb.collection('agro').doc(col).set({data: JSON.stringify(local), ts: Date.now()});
+        }
       }
-    }
-    console.log('Sincronización completada');
-  } catch(e) {
-    console.log('Sin conexión - trabajando offline:', e.message);
-  }
+    }).catch(function(e){ console.log('sync error', col, e.message); });
+  });
+  
+  Promise.all(promesas).then(function() {
+    if (sb) sb.style.display = 'none';
+    renderPant('Inicio');
+  }).catch(function() {
+    if (sb) sb.style.display = 'none';
+    renderPant('Inicio');
+  });
 }
 
-const USUARIOS = {
-  '1234': { nombre:'Alejandro Ibáñez Morales', rol:'admin' },
-  '3377': { nombre:'Monitoreador', rol:'operario' }
-};
+// ═══ ESTADO ═══
+var U = null;
+var S = {pant:'Inicio', cliId:null, camId:null, lotId:null, sesId:null};
+var pila = [];
+var gpsLot = null, obsTemp = {}, fotosTemp = [];
+var mapaObj = null, mapaMarker = null;
 
-let U = null;
-let S = { pant:'Inicio', cliId:null, camId:null, lotId:null, sesId:null };
-let pila = [];
-let gpsLot = null, gpsPan = null, obsTemp = {}, fotosTemp = [];
-let mapa = null, marker = null;
-
-// ═══════════════════════════════════════
-// OFFLINE DETECTION
-// ═══════════════════════════════════════
+// ═══ OFFLINE ═══
 function actualizarOffline() {
-  document.getElementById('offBanner').style.display = navigator.onLine ? 'none' : 'block';
+  var ob = document.getElementById('offBanner');
+  if (ob) ob.style.display = navigator.onLine ? 'none' : 'block';
 }
 window.addEventListener('online', actualizarOffline);
 window.addEventListener('offline', actualizarOffline);
 actualizarOffline();
 
-// ═══════════════════════════════════════
-// LOGIN
-// ═══════════════════════════════════════
-// Login functions defined in HEAD script
-let _pin = _pin || '';
-
-function pP(n) {
-  if (_pin.length >= 6) return;
-  _pin += n;
-  document.getElementById('pinDisplay').textContent = '●'.repeat(_pin.length);
-}
-function pB() {
-  _pin = _pin.slice(0,-1);
-  document.getElementById('pinDisplay').textContent = _pin.length ? '●'.repeat(_pin.length) : '—';
-}
-function pOK() {
-  var u = _u[_pin];
-  if (u) {
-    U = u;
-    localStorage.setItem('am_ses', JSON.stringify({u:u, ts:Date.now()}));
-    document.getElementById('login').classList.add('oculto');
-    document.getElementById('app').style.display = '';
-    renderPant('Inicio');
-  } else {
-    document.getElementById('lErr').style.display = 'block';
-    _pin = '';
-    document.getElementById('pinDisplay').textContent = '—';
-  }
-}
-function loginApp() { pOK(); }
-function elegirUsuario(rol) {}
-function mostrarPIN(rol) {}
-function volverPaso1() {}
-function pinPress(n) { pP(n); }
-function pinBorrar() { pB(); }
-function pinConfirmar() { pOK(); }
-
+// ═══ SESIÓN ═══
 function logout() {
   if (!confirm('¿Cerrar sesión?')) return;
   localStorage.removeItem('am_ses');
   U = null;
   document.getElementById('app').style.display = 'none';
-  document.getElementById('login').classList.remove('oculto');
-  document.getElementById('lInp').value = '';
-  document.getElementById('lErr').style.display = 'none';
+  document.getElementById('login').style.display = 'flex';
+  _pin = '';
+  var d = document.getElementById('pinDisplay');
+  if (d) d.textContent = '—';
 }
 
 function iniciarApp() {
-  // Sincronizar con Firebase
-  sincronizarDesdeFirebase().then(() => {
-    if (U) renderPant(S.pant || 'Inicio');
-  });
-  const d = localStorage.getItem('am_ses');
+  var d = localStorage.getItem('am_ses');
   if (d) {
     try {
-      const {u, ts} = JSON.parse(d);
-      if (Date.now() - ts < 30*24*60*60*1000) {
-        U = u;
-        document.getElementById('login').classList.add('oculto');
+      var parsed = JSON.parse(d);
+      if (Date.now() - parsed.ts < 30*24*60*60*1000) {
+        U = parsed.u;
+        window._usuarioActivo = U;
+        document.getElementById('login').style.display = 'none';
         document.getElementById('app').style.display = '';
-        renderPant('Inicio');
+        sincronizarYArrancar();
         return;
       }
     } catch(e) {}
   }
-  setTimeout(() => document.getElementById('lInp').focus(), 300);
 }
 
-// ═══════════════════════════════════════
-// NAVEGACIÓN
-// ═══════════════════════════════════════
+// ═══ NAVEGACIÓN ═══
 function renderPant(p) {
   S.pant = p;
-  document.querySelectorAll('.pant').forEach(x => x.classList.remove('act'));
+  U = window._usuarioActivo || U;
+  document.querySelectorAll('.pant').forEach(function(x){ x.classList.remove('act'); });
   document.getElementById('hBack').classList.toggle('vis', pila.length > 0);
-  const t = {Inicio:'AgroMonitor',Campos:'Campos',Lotes:'Lotes',Detalle:'Lote',Monitoreo:'Monitoreo',Informe:'Informe',Historial:'Historial',Config:'Configuración'};
+  var t = {Inicio:'AgroMonitor',Campos:'Campos',Lotes:'Lotes',Detalle:'Lote',Monitoreo:'Monitoreo',Informe:'Informe',Historial:'Historial',Config:'Configuración'};
   document.getElementById('hTit').textContent = t[p] || 'AgroMonitor';
   if(p==='Inicio'){renderClientes();sh('pInicio');}
   else if(p==='Campos'){renderCampos();sh('pCampos');}
@@ -615,687 +537,272 @@ function renderPant(p) {
   else if(p==='Config'){renderConfig();sh('pConfig');}
 }
 function sh(id){ document.getElementById(id).classList.add('act'); }
-function ir(p,ex){ pila.push({...S}); Object.assign(S,ex||{}); renderPant(p); }
-function atras(){ if(!pila.length)return; const prev=pila.pop(); Object.assign(S,prev); renderPant(prev.pant); }
-function irTab(t){ pila=[]; ['Inicio','Historial','Config'].forEach(x=>document.getElementById('t'+x).classList.toggle('act',x===t)); renderPant(t); }
+function ir(p,ex){ pila.push(Object.assign({},S)); Object.assign(S,ex||{}); renderPant(p); }
+function atras(){ if(!pila.length)return; var prev=pila.pop(); Object.assign(S,prev); renderPant(prev.pant); }
+function irTab(t){ pila=[]; ['Inicio','Historial','Config'].forEach(function(x){ document.getElementById('t'+x).classList.toggle('act',x===t); }); renderPant(t); }
 function irInicio(){ pila=[]; irTab('Inicio'); }
 
-// ═══════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════
-const getCli=()=>DB.get('clientes').find(c=>c.id===S.cliId);
-const getCam=()=>DB.get('campos').find(c=>c.id===S.camId);
-const getLot=()=>DB.get('lotes').find(l=>l.id===S.lotId);
-const getSes=()=>DB.get('sesiones').find(s=>s.id===S.sesId);
-function getCult(id){ return CAT.find(c=>c.id===id)||DB.get('cultivos_ex').find(c=>c.id===id)||null; }
-function todosCult(){ return [...CAT,...DB.get('cultivos_ex').map(e=>({...e,plagas:[],enf:[]}))];}
-const fF=ts=>new Date(ts).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'});
-const fH=ts=>new Date(ts).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+// ═══ HELPERS ═══
+function getCli(){ return DB.get('clientes').find(function(c){ return c.id===S.cliId; }); }
+function getCam(){ return DB.get('campos').find(function(c){ return c.id===S.camId; }); }
+function getLot(){ return DB.get('lotes').find(function(l){ return l.id===S.lotId; }); }
+function getSes(){ return DB.get('sesiones').find(function(s){ return s.id===S.sesId; }); }
+function getCult(id){
+  var base = CAT.find(function(c){ return c.id===id; });
+  if (base) return base;
+  var ex = DB.get('cultivos_ex').find(function(c){ return c.id===id; });
+  return ex ? Object.assign({},ex,{plagas:[],enf:[]}) : null;
+}
+function todosCult(){ return CAT.concat(DB.get('cultivos_ex').map(function(e){ return Object.assign({},e,{plagas:[],enf:[]}); })); }
+function fF(ts){ return new Date(ts).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+function fH(ts){ return new Date(ts).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}); }
 
-// ═══════════════════════════════════════
-// RENDERS
-// ═══════════════════════════════════════
+// ═══ RENDERS ═══
 function renderClientes(){
-  const cl=DB.get('clientes'); const el=document.getElementById('listaClientes');
-  if(!cl.length){el.innerHTML=`<div class="vacio"><div class="vacio-i">👤</div><div class="vacio-t">Sin clientes aún</div><div>Agregá tu primer cliente para comenzar</div></div>`;return;}
-  el.innerHTML=cl.map(c=>{const n=DB.get('campos').filter(f=>f.cliId===c.id).length;return`<div class="card"><div class="card-tap" onclick="ir('Campos',{cliId:'${c.id}'})"><div class="ci v">👤</div><div><div class="ct">${c.nombre}</div><div class="cs">${n} campo${n!==1?'s':''}</div></div><div class="cf">›</div></div></div>`;}).join('');
+  var cl=DB.get('clientes'); var el=document.getElementById('listaClientes');
+  if(!cl.length){ el.innerHTML='<div class="vacio"><div class="vacio-i">👤</div><div class="vacio-t">Sin clientes aún</div><div>Agregá tu primer cliente</div></div>'; return; }
+  el.innerHTML=cl.map(function(c){ var n=DB.get('campos').filter(function(f){ return f.cliId===c.id; }).length; return '<div class="card"><div class="card-tap" onclick="ir(\'Campos\',{cliId:\''+c.id+'\'})"><div class="ci v">👤</div><div><div class="ct">'+c.nombre+'</div><div class="cs">'+n+' campo'+(n!==1?'s':'')+'</div></div><div class="cf">›</div></div></div>'; }).join('');
 }
 
 function renderCampos(){
-  const arr=DB.get('campos').filter(f=>f.cliId===S.cliId); const el=document.getElementById('listaCampos');
-  const cli=getCli(); document.getElementById('hTit').textContent=cli?.nombre||'Campos';
-  if(!arr.length){el.innerHTML=`<div class="vacio"><div class="vacio-i">🗺️</div><div class="vacio-t">Sin campos</div></div>`;return;}
-  el.innerHTML=arr.map(f=>{const n=DB.get('lotes').filter(l=>l.camId===f.id).length;return`<div class="card"><div class="card-tap" onclick="ir('Lotes',{camId:'${f.id}'})"><div class="ci v">🗺️</div><div><div class="ct">${f.nombre}</div><div class="cs">${n} lote${n!==1?'s':''}${f.ha?' · '+f.ha+' ha':''}</div></div><div class="cf">›</div></div></div>`;}).join('');
+  var arr=DB.get('campos').filter(function(f){ return f.cliId===S.cliId; }); var el=document.getElementById('listaCampos');
+  var cli=getCli(); document.getElementById('hTit').textContent=cli?cli.nombre:'Campos';
+  if(!arr.length){ el.innerHTML='<div class="vacio"><div class="vacio-i">🗺️</div><div class="vacio-t">Sin campos</div></div>'; return; }
+  el.innerHTML=arr.map(function(f){ var n=DB.get('lotes').filter(function(l){ return l.camId===f.id; }).length; return '<div class="card"><div class="card-tap" onclick="ir(\'Lotes\',{camId:\''+f.id+'\'})"><div class="ci v">🗺️</div><div><div class="ct">'+f.nombre+'</div><div class="cs">'+n+' lote'+(n!==1?'s':'')+(f.ha?' · '+f.ha+' ha':'')+'</div></div><div class="cf">›</div></div></div>'; }).join('');
 }
 
 function renderLotes(){
-  const arr=DB.get('lotes').filter(l=>l.camId===S.camId); const el=document.getElementById('listaLotes');
-  const cam=getCam(); document.getElementById('hTit').textContent=cam?.nombre||'Lotes';
-  if(!arr.length){el.innerHTML=`<div class="vacio"><div class="vacio-i">🌾</div><div class="vacio-t">Sin lotes</div></div>`;return;}
-  el.innerHTML=arr.map(l=>{const cult=getCult(l.cultId);const n=DB.get('sesiones').filter(s=>s.lotId===l.id).length;return`<div class="card"><div class="card-tap" onclick="ir('Detalle',{lotId:'${l.id}'})"><div class="ci v">🌾</div><div><div class="ct">${l.nombre}</div><div class="cs">${cult?cult.nombre:'Sin cultivo'}${l.ha?' · '+l.ha+' ha':''}</div><div style="margin-top:4px"><span class="badge bg2">${n} monitoreo${n!==1?'s':''}</span></div></div><div class="cf">›</div></div></div>`;}).join('');
+  var arr=DB.get('lotes').filter(function(l){ return l.camId===S.camId; }); var el=document.getElementById('listaLotes');
+  var cam=getCam(); document.getElementById('hTit').textContent=cam?cam.nombre:'Lotes';
+  if(!arr.length){ el.innerHTML='<div class="vacio"><div class="vacio-i">🌾</div><div class="vacio-t">Sin lotes</div></div>'; return; }
+  el.innerHTML=arr.map(function(l){ var cult=getCult(l.cultId); var n=DB.get('sesiones').filter(function(s){ return s.lotId===l.id; }).length; return '<div class="card"><div class="card-tap" onclick="ir(\'Detalle\',{lotId:\''+l.id+'\'})"><div class="ci v">🌾</div><div><div class="ct">'+l.nombre+'</div><div class="cs">'+(cult?cult.nombre:'Sin cultivo')+(l.ha?' · '+l.ha+' ha':'')+'</div><div style="margin-top:4px"><span class="badge bg2">'+n+' monitoreo'+(n!==1?'s':'')+'</span></div></div><div class="cf">›</div></div></div>'; }).join('');
 }
 
 function renderDetalle(){
-  const lot=getLot(); if(!lot)return;
+  var lot=getLot(); if(!lot)return;
   document.getElementById('hTit').textContent=lot.nombre;
-  document.getElementById('chipsCultivo').innerHTML=todosCult().map(c=>`<span class="chip ${lot.cultId===c.id?'on':''}" onclick="cambiarCultLote('${c.id}')">${c.nombre}</span>`).join('');
-  const sesAct=DB.get('sesiones').find(s=>s.lotId===lot.id&&s.est==='abierta');
-  const ban=document.getElementById('sesionBanner'); const btnI=document.getElementById('btnIniciar');
-  if(sesAct){
-    S.sesId=sesAct.id;
-    ban.innerHTML=`<div class="ale ale-a" style="margin-bottom:12px">⚠️ <div><strong>Monitoreo en curso</strong><br>${fF(sesAct.fecha)} ${fH(sesAct.fecha)}</div></div><button class="btn ba" onclick="ir('Monitoreo',{sesId:'${sesAct.id}'})">Continuar monitoreo →</button>`;
-    btnI.style.display='none';
-  } else { ban.innerHTML=''; btnI.style.display=''; }
-  const ses=DB.get('sesiones').filter(s=>s.lotId===lot.id&&s.est==='cerrada').reverse();
-  document.getElementById('histSesiones').innerHTML=ses.length?`<div class="stit">Monitoreos anteriores</div>`+ses.slice(0,5).map(s=>{const np=DB.get('panadas').filter(p=>p.sesId===s.id).length;return`<div class="card"><div class="card-tap" onclick="verInforme('${s.id}')"><div class="ci a">📋</div><div><div class="ct">${fF(s.fecha)}</div><div class="cs">${np} pañadas · ${getCult(s.cultId)?.nombre||''}</div></div><div class="cf">›</div></div></div>`;}).join(''):'';
+  document.getElementById('chipsCultivo').innerHTML=todosCult().map(function(c){ return '<span class="chip '+(lot.cultId===c.id?'on':'')+'" onclick="cambiarCultLote(\''+c.id+'\')">'+c.nombre+'</span>'; }).join('');
+  var sesAct=DB.get('sesiones').find(function(s){ return s.lotId===lot.id && s.est==='abierta'; });
+  var ban=document.getElementById('sesionBanner'); var btnI=document.getElementById('btnIniciar');
+  if(sesAct){ S.sesId=sesAct.id; ban.innerHTML='<div class="ale ale-a" style="margin-bottom:12px">⚠️ <div><strong>Monitoreo en curso</strong><br>'+fF(sesAct.fecha)+' '+fH(sesAct.fecha)+'</div></div><button class="btn ba" onclick="ir(\'Monitoreo\',{sesId:\''+sesAct.id+'\'})">Continuar monitoreo →</button>'; btnI.style.display='none'; }
+  else { ban.innerHTML=''; btnI.style.display=''; }
+  var ses=DB.get('sesiones').filter(function(s){ return s.lotId===lot.id && s.est==='cerrada'; }).reverse();
+  document.getElementById('histSesiones').innerHTML=ses.length?'<div class="stit">Monitoreos anteriores</div>'+ses.slice(0,5).map(function(s){ var np=DB.get('panadas').filter(function(p){ return p.sesId===s.id; }).length; return '<div class="card"><div class="card-tap" onclick="verInforme(\''+s.id+'\')"><div class="ci a">📋</div><div><div class="ct">'+fF(s.fecha)+'</div><div class="cs">'+np+' pañadas · '+(getCult(s.cultId)?getCult(s.cultId).nombre:'')+'</div></div><div class="cf">›</div></div></div>'; }).join(''):'';
 }
 
-function cambiarCultLote(id){
-  const arr=DB.get('lotes'); const i=arr.findIndex(l=>l.id===S.lotId);
-  if(i>=0){arr[i].cultId=id;DB.set('lotes',arr);} renderDetalle();
-}
+function cambiarCultLote(id){ var arr=DB.get('lotes'); var i=arr.findIndex(function(l){ return l.id===S.lotId; }); if(i>=0){arr[i].cultId=id;DB.set('lotes',arr);} renderDetalle(); }
 
 function renderMonitoreo(){
-  const ses=getSes(); if(!ses)return;
-  const lot=getLot(); const cult=getCult(ses.cultId);
-  document.getElementById('hTit').textContent=lot?.nombre||'Monitoreo';
-  document.getElementById('infoCult').innerHTML=`🌱 <div><strong>${cult?.nombre||'Cultivo'}</strong> — ${lot?.nombre||'Lote'}<br><span style="font-size:13px;opacity:.8">${fF(ses.fecha)}</span></div>`;
-  const pans=DB.get('panadas').filter(p=>p.sesId===ses.id); const el=document.getElementById('listaPanadas');
-  if(!pans.length){el.innerHTML=`<div class="vacio" style="padding:24px"><div class="vacio-i" style="font-size:36px">📍</div><div class="vacio-t">Sin pañadas</div><div>Presioná "Nueva pañada" para comenzar</div></div>`;return;}
-  el.innerHTML=pans.map((p,i)=>{
-    const obs=(p.obs||[]).map(o=>{if(o.tipo==='presencia')return o.val?'✔ '+o.nombre:'';if(o.tipo==='conteo'){let txt=o.nombre+': '+o.val+(o.u?' '+o.u:'');if(o.estadios&&Object.keys(o.estadios).length)txt+=' ('+Object.entries(o.estadios).filter(([k,v])=>v>0).map(([k,v])=>k+':'+v).join(', ')+')';return txt;}return o.nombre;}).filter(Boolean).join(' · ')||'Sin hallazgos';
-    const nFotos=p.fotos?.length||0;
-    return`<div class="pan-it"><div class="pan-hd"><div class="pan-n">${i+1}</div><div style="flex:1"><div style="font-size:14px;font-weight:600">Pañada #${i+1}</div><div style="font-size:12px;color:var(--gm)">${p.lat?'📍 '+p.lat.toFixed(4)+', '+p.lon.toFixed(4):'📍 Sin GPS'}${nFotos?' · 📷 '+nFotos+' foto'+(nFotos!==1?'s':''):''}</div></div><span class="badge bv">${fH(p.fecha)}</span></div><div style="padding:9px 14px;font-size:13px;color:var(--ts)">${obs}</div></div>`;
-  }).join('');
+  var ses=getSes(); if(!ses)return;
+  var lot=getLot(); var cult=getCult(ses.cultId);
+  document.getElementById('hTit').textContent=lot?lot.nombre:'Monitoreo';
+  document.getElementById('infoCult').innerHTML='🌱 <div><strong>'+(cult?cult.nombre:'Cultivo')+'</strong> — '+(lot?lot.nombre:'Lote')+'<br><span style="font-size:13px;opacity:.8">'+fF(ses.fecha)+'</span></div>';
+  var pans=DB.get('panadas').filter(function(p){ return p.sesId===ses.id; }); var el=document.getElementById('listaPanadas');
+  if(!pans.length){ el.innerHTML='<div class="vacio" style="padding:24px"><div class="vacio-i" style="font-size:36px">📍</div><div class="vacio-t">Sin pañadas</div><div>Presioná "Nueva pañada"</div></div>'; return; }
+  el.innerHTML=pans.map(function(p,i){ var obs=(p.obs||[]).map(function(o){ if(o.tipo==='presencia')return o.val?'✔ '+o.nombre:''; if(o.tipo==='conteo')return o.nombre+': '+o.val+(o.u?' '+o.u:''); return o.nombre; }).filter(Boolean).join(' · ')||'Sin hallazgos'; return '<div class="pan-it"><div class="pan-hd"><div class="pan-n">'+(i+1)+'</div><div style="flex:1"><div style="font-size:14px;font-weight:600">Pañada #'+(i+1)+'</div><div style="font-size:12px;color:var(--gm)">'+(p.lat?'📍 '+p.lat.toFixed(4)+', '+p.lon.toFixed(4):'📍 Sin GPS')+'</div></div><span class="badge bv">'+fH(p.fecha)+'</span></div><div style="padding:9px 14px;font-size:13px;color:var(--ts)">'+obs+'</div></div>'; }).join('');
 }
 
 function renderInforme(sidOpc){
-  const sid=sidOpc||S.sesId;
-  const ses=DB.get('sesiones').find(s=>s.id===sid); if(!ses)return;
+  var sid=sidOpc||S.sesId;
+  var ses=DB.get('sesiones').find(function(s){ return s.id===sid; }); if(!ses)return;
   S.sesId=sid;
-  const lot=DB.get('lotes').find(l=>l.id===ses.lotId);
-  const cam=DB.get('campos').find(f=>f.id===lot?.camId);
-  const cli=DB.get('clientes').find(c=>c.id===cam?.cliId);
-  const cult=getCult(ses.cultId);
-  const pans=DB.get('panadas').filter(p=>p.sesId===sid);
-  const orgM={};
-  pans.forEach(p=>(p.obs||[]).forEach(o=>{
-    if(!orgM[o.id])orgM[o.id]={...o,vals:[],pres:[],incs:[],sevs:[],estMap:{}};
-    if(o.tipo==='conteo'){orgM[o.id].vals.push(o.val||0);if(o.estadios)Object.entries(o.estadios).forEach(([k,v])=>{orgM[o.id].estMap[k]=(orgM[o.id].estMap[k]||0)+v;});}
+  var lot=DB.get('lotes').find(function(l){ return l.id===ses.lotId; });
+  var cam=DB.get('campos').find(function(f){ return f.id===(lot&&lot.camId); });
+  var cli=DB.get('clientes').find(function(c){ return c.id===(cam&&cam.cliId); });
+  var cult=getCult(ses.cultId);
+  var pans=DB.get('panadas').filter(function(p){ return p.sesId===sid; });
+  var orgM={};
+  pans.forEach(function(p){ (p.obs||[]).forEach(function(o){
+    if(!orgM[o.id])orgM[o.id]=Object.assign({},o,{vals:[],pres:[],incs:[],sevs:[]});
+    if(o.tipo==='conteo')orgM[o.id].vals.push(o.val||0);
     else if(o.tipo==='presencia')orgM[o.id].pres.push(o.val);
     else if(o.tipo==='inci'){if(o.inc!==undefined)orgM[o.id].incs.push(o.inc);if(o.sev!==undefined)orgM[o.id].sevs.push(o.sev);}
-  }));
-  const prom=a=>a.length?(a.reduce((x,y)=>x+y,0)/a.length).toFixed(1):null;
-  const presP=a=>a.length?Math.round(a.filter(Boolean).length/a.length*100):null;
-  let htmlO=Object.values(orgM).map(o=>{
-    let res='';
-    if(o.tipo==='conteo'){res=`Promedio: <strong>${prom(o.vals)}</strong> ${o.u||'u'}/pañada`;if(Object.keys(o.estMap).length){res+=`<br><span style="font-size:12px;color:var(--gm)">Estadios: `+Object.entries(o.estMap).map(([k,v])=>`${k}: ${v}`).join(', ')+'</span>';}}
-    else if(o.tipo==='presencia'){const p=presP(o.pres);res=`Presente en <strong>${p}%</strong> de las pañadas`;}
-    else if(o.tipo==='inci'){const pi=prom(o.incs),ps=prom(o.sevs);res=`Incidencia: <strong>${pi??'-'}%</strong> · Severidad: <strong>${ps??'-'}%</strong>`;}
-    return`<div class="obs-it"><div class="obs-dot ${o.tipo==='inci'?'de':'dp'}"></div><div><div style="font-size:14px;font-weight:600">${o.nombre}</div><div style="font-size:13px;color:var(--ts)">${res}</div></div></div>`;
-  }).join('')||'<div style="padding:14px 16px;font-size:14px;color:var(--gm)">Sin hallazgos registrados</div>';
-
-  document.getElementById('contInforme').innerHTML=`
-    <div class="inf-s"><div class="inf-sh">📋 Datos del monitoreo</div>
-      <div class="inf-f"><span class="inf-fl">Cliente</span><span class="inf-fv">${cli?.nombre||'-'}</span></div>
-      <div class="inf-f"><span class="inf-fl">Campo</span><span class="inf-fv">${cam?.nombre||'-'}</span></div>
-      <div class="inf-f"><span class="inf-fl">Lote</span><span class="inf-fv">${lot?.nombre||'-'}${lot?.ha?' ('+lot.ha+' ha)':''}</span></div>
-      <div class="inf-f"><span class="inf-fl">Cultivo</span><span class="inf-fv">${cult?.nombre||'-'}</span></div>
-      <div class="inf-f"><span class="inf-fl">Fecha</span><span class="inf-fv">${fF(ses.fecha)}</span></div>
-      <div class="inf-f"><span class="inf-fl">Pañadas</span><span class="inf-fv">${pans.length}</span></div>
-    </div>
-    <div class="inf-s"><div class="inf-sh">🔬 Resultados por organismo</div>${htmlO}</div>
-    <div class="inf-s"><div class="inf-sh">📍 GPS por pañada</div>
-      ${pans.map((p,i)=>`<div class="inf-f"><span class="inf-fl">Pañada #${i+1}</span><span class="inf-fv" style="font-size:12px;font-weight:400">${p.lat?p.lat.toFixed(5)+', '+p.lon.toFixed(5):'Sin GPS'}</span></div>`).join('')}
-    </div>`;
-
-  // Mapa del informe
-  setTimeout(()=>initMapaInforme(pans),200);
+  }); });
+  function prom(a){ return a.length?(a.reduce(function(x,y){return x+y;},0)/a.length).toFixed(1):'-'; }
+  function presP(a){ return a.length?Math.round(a.filter(Boolean).length/a.length*100):0; }
+  var htmlO=Object.values(orgM).map(function(o){ var res=''; if(o.tipo==='conteo')res='Promedio: <strong>'+prom(o.vals)+'</strong> '+(o.u||'u')+'/pañada'; else if(o.tipo==='presencia')res='Presente en <strong>'+presP(o.pres)+'%</strong> de las pañadas'; else if(o.tipo==='inci')res='Incidencia: <strong>'+prom(o.incs)+'%</strong> · Severidad: <strong>'+prom(o.sevs)+'%</strong>'; return '<div class="obs-it"><div class="obs-dot '+(o.tipo==='inci'?'de':'dp')+'"></div><div><div style="font-size:14px;font-weight:600">'+o.nombre+'</div><div style="font-size:13px;color:var(--ts)">'+res+'</div></div></div>'; }).join('')||'<div style="padding:14px 16px;font-size:14px;color:var(--gm)">Sin hallazgos registrados</div>';
+  document.getElementById('contInforme').innerHTML='<div class="inf-s"><div class="inf-sh">📋 Datos del monitoreo</div><div class="inf-f"><span class="inf-fl">Cliente</span><span class="inf-fv">'+(cli?cli.nombre:'-')+'</span></div><div class="inf-f"><span class="inf-fl">Campo</span><span class="inf-fv">'+(cam?cam.nombre:'-')+'</span></div><div class="inf-f"><span class="inf-fl">Lote</span><span class="inf-fv">'+(lot?lot.nombre:'-')+(lot&&lot.ha?' ('+lot.ha+' ha)':'')+'</span></div><div class="inf-f"><span class="inf-fl">Cultivo</span><span class="inf-fv">'+(cult?cult.nombre:'-')+'</span></div><div class="inf-f"><span class="inf-fl">Fecha</span><span class="inf-fv">'+fF(ses.fecha)+'</span></div><div class="inf-f"><span class="inf-fl">Pañadas</span><span class="inf-fv">'+pans.length+'</span></div></div><div class="inf-s"><div class="inf-sh">🔬 Resultados</div>'+htmlO+'</div><div class="inf-s"><div class="inf-sh">📍 GPS</div>'+pans.map(function(p,i){ return '<div class="inf-f"><span class="inf-fl">Pañada #'+(i+1)+'</span><span class="inf-fv" style="font-size:12px;font-weight:400">'+(p.lat?p.lat.toFixed(5)+', '+p.lon.toFixed(5):'Sin GPS')+'</span></div>'; }).join('')+'</div>';
+  setTimeout(function(){ initMapaInforme(pans); }, 200);
 }
 
 function initMapaInforme(pans){
-  const el=document.getElementById('mapaInforme');
-  const conGPS=pans.filter(p=>p.lat&&p.lon);
-  if(!conGPS.length){el.innerHTML=`<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--gm);font-size:14px;background:var(--gc)">Sin datos GPS para mostrar en el mapa</div>`;return;}
+  var el=document.getElementById('mapaInforme');
+  var conGPS=pans.filter(function(p){ return p.lat&&p.lon; });
+  if(!conGPS.length){ el.innerHTML='<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--gm);font-size:14px;background:var(--gc)">Sin datos GPS</div>'; return; }
   if(window._mapaInf){window._mapaInf.remove();window._mapaInf=null;}
-  const lats=conGPS.map(p=>p.lat), lons=conGPS.map(p=>p.lon);
-  const cLat=(Math.max(...lats)+Math.min(...lats))/2, cLon=(Math.max(...lons)+Math.min(...lons))/2;
-  const m=L.map('mapaInforme',{zoomControl:true,attributionControl:false}).setView([cLat,cLon],15);
+  var latC=conGPS.reduce(function(a,p){return a+p.lat;},0)/conGPS.length;
+  var lonC=conGPS.reduce(function(a,p){return a+p.lon;},0)/conGPS.length;
+  var m=L.map('mapaInforme',{zoomControl:true,attributionControl:false}).setView([latC,lonC],15);
   window._mapaInf=m;
   L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{subdomains:['mt0','mt1','mt2','mt3'],maxZoom:20}).addTo(m);
-  conGPS.forEach((p,i)=>{
-    const icon=L.divIcon({html:`<div style="background:#1a3a1a;color:white;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:2px solid white">${i+1}</div>`,iconSize:[26,26],iconAnchor:[13,13],className:''});
-    L.marker([p.lat,p.lon],{icon}).addTo(m).bindPopup(`Pañada #${i+1} — ${fH(p.fecha)}`);
-  });
-  if(conGPS.length>1){const bounds=L.latLngBounds(conGPS.map(p=>[p.lat,p.lon]));m.fitBounds(bounds,{padding:[30,30]});}
-  setTimeout(()=>m.invalidateSize(),300);
+  conGPS.forEach(function(p,i){ var icon=L.divIcon({html:'<div style="background:#1a3a1a;color:white;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:2px solid white">'+(i+1)+'</div>',iconSize:[26,26],iconAnchor:[13,13],className:''}); L.marker([p.lat,p.lon],{icon:icon}).addTo(m).bindPopup('Pañada #'+(i+1)); });
+  if(conGPS.length>1){m.fitBounds(conGPS.map(function(p){return[p.lat,p.lon];}),{padding:[30,30]});}
+  setTimeout(function(){m.invalidateSize();},300);
 }
 
 function renderHistorial(){
-  const ses=DB.get('sesiones').filter(s=>s.est==='cerrada').reverse();
-  const el=document.getElementById('listaHist');
-  if(!ses.length){el.innerHTML=`<div class="vacio"><div class="vacio-i">📋</div><div class="vacio-t">Sin monitoreos cerrados</div></div>`;return;}
-  el.innerHTML=ses.map(s=>{
-    const lot=DB.get('lotes').find(l=>l.id===s.lotId);
-    const cam=DB.get('campos').find(f=>f.id===lot?.camId);
-    const cli=DB.get('clientes').find(c=>c.id===cam?.cliId);
-    const np=DB.get('panadas').filter(p=>p.sesId===s.id).length;
-    const cult=getCult(s.cultId);
-    return`<div class="card"><div class="card-tap" onclick="verInforme('${s.id}')"><div class="ci a">📋</div><div><div class="ct">${cli?.nombre||'?'} — ${lot?.nombre||'?'}</div><div class="cs">${cam?.nombre||''} · ${cult?.nombre||''}</div><div style="margin-top:4px"><span class="badge bg2">${fF(s.fecha)}</span> <span class="badge bv">${np} pañadas</span>${U?.rol==='admin'&&s.operario?` <span class="badge bg2">👤 ${s.operario}</span>`:''}</div></div><div class="cf">›</div></div></div>`;
-  }).join('');
+  var ses=DB.get('sesiones').filter(function(s){return s.est==='cerrada';}).reverse();
+  var el=document.getElementById('listaHist');
+  if(!ses.length){el.innerHTML='<div class="vacio"><div class="vacio-i">📋</div><div class="vacio-t">Sin monitoreos cerrados</div></div>';return;}
+  el.innerHTML=ses.map(function(s){ var lot=DB.get('lotes').find(function(l){return l.id===s.lotId;}); var cam=DB.get('campos').find(function(f){return f.id===(lot&&lot.camId);}); var cli=DB.get('clientes').find(function(c){return c.id===(cam&&cam.cliId);}); var np=DB.get('panadas').filter(function(p){return p.sesId===s.id;}).length; var cult=getCult(s.cultId); return '<div class="card"><div class="card-tap" onclick="verInforme(\''+s.id+'\')"><div class="ci a">📋</div><div><div class="ct">'+(cli?cli.nombre:'?')+' — '+(lot?lot.nombre:'?')+'</div><div class="cs">'+(cam?cam.nombre:'')+' · '+(cult?cult.nombre:'')+'</div><div style="margin-top:4px"><span class="badge bg2">'+fF(s.fecha)+'</span> <span class="badge bv">'+np+' pañadas</span>'+(U&&U.rol==='admin'&&s.operario?' <span class="badge bg2">👤 '+s.operario+'</span>':'')+'</div></div><div class="cf">›</div></div></div>'; }).join('');
 }
 
 function renderConfig(){
-  const ex=DB.get('cultivos_ex');
-  document.getElementById('listaCultConf').innerHTML=`<div class="card"><div style="padding:4px 0">
-    ${CAT.map(c=>`<div style="padding:11px 16px;border-bottom:1px solid var(--gc);font-size:14px;display:flex;justify-content:space-between;align-items:center">${c.nombre}<span class="badge bv">base</span></div>`).join('')}
-    ${ex.map(c=>`<div style="padding:11px 16px;border-bottom:1px solid var(--gc);font-size:14px;display:flex;justify-content:space-between;align-items:center">${c.nombre}<button onclick="borrarCultEx('${c.id}')" style="border:none;background:none;color:var(--ro);font-size:13px;cursor:pointer;font-weight:600">Eliminar</button></div>`).join('')}
-  </div></div>`;
+  var ex=DB.get('cultivos_ex');
+  document.getElementById('listaCultConf').innerHTML='<div class="card"><div style="padding:4px 0">'+CAT.map(function(c){return'<div style="padding:11px 16px;border-bottom:1px solid var(--gc);font-size:14px;display:flex;justify-content:space-between;align-items:center">'+c.nombre+'<span class="badge bv">base</span></div>';}).join('')+ex.map(function(c){return'<div style="padding:11px 16px;border-bottom:1px solid var(--gc);font-size:14px;display:flex;justify-content:space-between;align-items:center">'+c.nombre+'<button onclick="borrarCultEx(\''+c.id+'\')" style="border:none;background:none;color:var(--ro);font-size:13px;cursor:pointer;font-weight:600">Eliminar</button></div>';}).join('')+'</div></div>';
 }
 
-// ═══════════════════════════════════════
-// CAMBIAR CULTIVO EN MONITOREO ACTIVO
-// ═══════════════════════════════════════
-function cambiarCultMonitoreo(){
-  document.getElementById('chipsCambiarCult').innerHTML=todosCult().map(c=>{
-    const ses=getSes(); return`<span class="chip ${ses?.cultId===c.id?'on':''}" onclick="confirmarCambioCult('${c.id}')">${c.nombre}</span>`;
-  }).join('');
-  abrirM('mCambiarCult');
-}
-
-function confirmarCambioCult(cultId){
-  const pans=DB.get('panadas').filter(p=>p.sesId===S.sesId);
-  if(pans.length>0&&!confirm(`Cambiar el cultivo borrará ${pans.length} pañada${pans.length!==1?'s':''} ya registradas. ¿Continuar?`))return;
-  // Borrar pañadas del monitoreo actual
-  DB.set('panadas',DB.get('panadas').filter(p=>p.sesId!==S.sesId));
-  // Actualizar cultivo en sesión y en lote
-  const ses=DB.get('sesiones'); const i=ses.findIndex(s=>s.id===S.sesId);
-  if(i>=0){ses[i].cultId=cultId;DB.set('sesiones',ses);}
-  const lotes=DB.get('lotes'); const j=lotes.findIndex(l=>l.id===S.lotId);
-  if(j>=0){lotes[j].cultId=cultId;DB.set('lotes',lotes);}
-  cerrarM('mCambiarCult'); renderMonitoreo();
-}
-
-// ═══════════════════════════════════════
-// SESIÓN
-// ═══════════════════════════════════════
+// ═══ SESIÓN MONITOREO ═══
 function iniciarSesion(){
-  const lot=getLot();
+  var lot=getLot();
   if(!lot.cultId){alert('Primero seleccioná el cultivo del lote');return;}
-  const ses={id:DB.id(),lotId:lot.id,cultId:lot.cultId,fecha:Date.now(),est:'abierta',operario:U?.nombre||''};
-  const arr=DB.get('sesiones');arr.push(ses);DB.set('sesiones',arr);
+  var ses={id:DB.id(),lotId:lot.id,cultId:lot.cultId,fecha:Date.now(),est:'abierta',operario:U?U.nombre:''};
+  var arr=DB.get('sesiones');arr.push(ses);DB.set('sesiones',arr);
   S.sesId=ses.id; ir('Monitoreo',{sesId:ses.id});
 }
 
 function cerrarSesion(){
-  const pans=DB.get('panadas').filter(p=>p.sesId===S.sesId);
+  var pans=DB.get('panadas').filter(function(p){return p.sesId===S.sesId;});
   if(!pans.length){alert('Registrá al menos una pañada antes de cerrar');return;}
   if(!confirm('¿Cerrar el monitoreo y generar el informe?'))return;
-  const arr=DB.get('sesiones');const i=arr.findIndex(s=>s.id===S.sesId);
+  var arr=DB.get('sesiones');var i=arr.findIndex(function(s){return s.id===S.sesId;});
   if(i>=0){arr[i].est='cerrada';arr[i].fechaCierre=Date.now();DB.set('sesiones',arr);}
   ir('Informe');
 }
 
 function verInforme(sid){ S.sesId=sid; ir('Informe',{sesId:sid}); renderInforme(sid); }
 
-// ═══════════════════════════════════════
-// MODAL PAÑADA
-// ═══════════════════════════════════════
-function abrirM(id){
-  if(id==='mPanada') abrirModalPanada();
-  else if(id==='mLote') abrirModalLote();
-  else document.getElementById(id).classList.add('ab');
+function cambiarCultMonitoreo(){
+  document.getElementById('chipsCambiarCult').innerHTML=todosCult().map(function(c){ var ses=getSes(); return '<span class="chip '+(ses&&ses.cultId===c.id?'on':'')+'" onclick="confirmarCambioCult(\''+c.id+'\')">'+c.nombre+'</span>'; }).join('');
+  abrirM('mCambiarCult');
 }
+
+function confirmarCambioCult(cultId){
+  var pans=DB.get('panadas').filter(function(p){return p.sesId===S.sesId;});
+  if(pans.length>0&&!confirm('Cambiar el cultivo borrará '+pans.length+' pañada'+(pans.length!==1?'s':'')+' ya registradas. ¿Continuar?'))return;
+  DB.set('panadas',DB.get('panadas').filter(function(p){return p.sesId!==S.sesId;}));
+  var ses=DB.get('sesiones');var i=ses.findIndex(function(s){return s.id===S.sesId;});
+  if(i>=0){ses[i].cultId=cultId;DB.set('sesiones',ses);}
+  var lotes=DB.get('lotes');var j=lotes.findIndex(function(l){return l.id===S.lotId;});
+  if(j>=0){lotes[j].cultId=cultId;DB.set('lotes',lotes);}
+  cerrarM('mCambiarCult'); renderMonitoreo();
+}
+
+// ═══ MODAL PAÑADA ═══
+function abrirM(id){ if(id==='mPanada')abrirModalPanada(); else if(id==='mLote')abrirModalLote(); else document.getElementById(id).classList.add('ab'); }
 function cerrarM(id){ document.getElementById(id).classList.remove('ab'); }
-document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('ab');}));
+document.querySelectorAll('.modal').forEach(function(m){ m.addEventListener('click',function(e){if(e.target===m)m.classList.remove('ab');}); });
 
 function abrirModalPanada(){
-  const ses=getSes(); if(!ses)return;
-  const cult=getCult(ses.cultId);
-  const np=DB.get('panadas').filter(p=>p.sesId===ses.id).length+1;
-  document.getElementById('mPanadaTit').textContent=`Pañada #${np}`;
-  gpsPan=null; obsTemp={}; fotosTemp=[];
+  var ses=getSes(); if(!ses)return;
+  var cult=getCult(ses.cultId);
+  var np=DB.get('panadas').filter(function(p){return p.sesId===ses.id;}).length+1;
+  document.getElementById('mPanadaTit').textContent='Pañada #'+np;
+  obsTemp={}; fotosTemp=[];
   document.getElementById('iNotPan').value='';
-  document.getElementById('fotoPrevWrap').innerHTML=`<div class="foto-add" onclick="document.getElementById('fotoPanInput').click()">+</div>`;
+  document.getElementById('fotoPrevWrap').innerHTML='<div onclick="document.getElementById(\'fotoPanInput\').click()" style="width:72px;height:72px;border-radius:8px;border:2px dashed var(--gb);display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;background:var(--gc);color:var(--gm)">+</div>';
   document.getElementById('iaResultPan').style.display='none';
-  document.getElementById('fPlagas').innerHTML=renderOrgs(cult?.plagas||[],'Sin plagas para este cultivo');
-  document.getElementById('fEnf').innerHTML=renderOrgs(cult?.enf||[],'Sin enfermedades para este cultivo');
+  document.getElementById('fPlagas').innerHTML=renderOrgs(cult?cult.plagas:[],'Sin plagas para este cultivo');
+  document.getElementById('fEnf').innerHTML=renderOrgs(cult?cult.enf:[],'Sin enfermedades para este cultivo');
   document.getElementById('mPanada').classList.add('ab');
 }
 
 function renderOrgs(orgs,vacioTxt){
-  if(!orgs.length)return`<p style="font-size:13px;color:var(--gm);margin-bottom:8px">${vacioTxt}</p>`;
-  return orgs.map(o=>{
-    if(o.tipo==='presencia')return`<div class="org-card"><div class="org-nombre">${o.nombre}</div><div class="tog-w"><button class="tog-o" id="tn_${o.id}" onclick="setP('${o.id}',false)">✗ Ausente</button><button class="tog-o" id="ts_${o.id}" onclick="setP('${o.id}',true)">✔ Presente</button></div></div>`;
-    if(o.tipo==='conteo'){
-      const estHTML=o.estadios?`<div style="margin-top:8px"><div style="font-size:12px;color:var(--ts);margin-bottom:4px">Estadio</div><div class="estadio-sel">${o.estadios.map(e=>`<div class="est-btn" id="est_${o.id}_${e}" onclick="toggleEst('${o.id}','${e}')">${e}: <span id="estv_${o.id}_${e}">0</span></div>`).join('')}</div></div>`:'';
-      return`<div class="org-card"><div class="org-nombre">${o.nombre}<span style="font-size:12px;font-weight:400;color:var(--gm)">${o.u||''}</span></div><div class="cnt-w"><button class="cnt-b" onclick="adjC('${o.id}',-1)">−</button><div class="cnt-v" id="cv_${o.id}">0</div><button class="cnt-b" onclick="adjC('${o.id}',1)">+</button></div>${estHTML}</div>`;
-    }
-    if(o.tipo==='inci')return`<div class="org-card"><div class="org-nombre">${o.nombre}</div>
-      <div style="font-size:12px;color:var(--ts);margin-bottom:4px">Incidencia (plantas afectadas %)</div>
-      <div class="esc-d">${[0,25,50,75,100].map((v,i)=>`<div class="esc-pt" id="inc_${o.id}_${i}" onclick="setE('inc','${o.id}',${v},${i})">${v}%</div>`).join('')}</div>
-      <div style="font-size:12px;color:var(--ts);margin:8px 0 4px">Severidad (área afectada %)</div>
-      <div class="esc-d">${[0,10,25,50,75].map((v,i)=>`<div class="esc-pt" id="sev_${o.id}_${i}" onclick="setE('sev','${o.id}',${v},${i})">${v}%</div>`).join('')}</div>
-    </div>`;
+  if(!orgs.length)return'<p style="font-size:13px;color:var(--gm);margin-bottom:8px">'+vacioTxt+'</p>';
+  return orgs.map(function(o){
+    if(o.tipo==='presencia')return'<div class="org-card"><div class="org-nombre">'+o.nombre+'</div><div class="tog-w"><button class="tog-o" id="tn_'+o.id+'" onclick="setP(\''+o.id+'\',false)">✗ Ausente</button><button class="tog-o" id="ts_'+o.id+'" onclick="setP(\''+o.id+'\',true)">✔ Presente</button></div></div>';
+    if(o.tipo==='conteo'){var estH=o.estadios?'<div style="margin-top:8px"><div style="font-size:12px;color:var(--ts);margin-bottom:4px">Estadio</div><div class="estadio-sel">'+o.estadios.map(function(e){return'<div class="est-btn" id="est_'+o.id+'_'+e+'" onclick="toggleEst(\''+o.id+'\',\''+e+'\')">'+e+': <span id="estv_'+o.id+'_'+e+'">0</span></div>';}).join('')+'</div></div>':''; return'<div class="org-card"><div class="org-nombre">'+o.nombre+' <span style="font-size:12px;font-weight:400;color:var(--gm)">'+(o.u||'')+'</span></div><div class="cnt-w"><button class="cnt-b" onclick="adjC(\''+o.id+'\',-1)">−</button><div class="cnt-v" id="cv_'+o.id+'">0</div><button class="cnt-b" onclick="adjC(\''+o.id+'\',1)">+</button></div>'+estH+'</div>';}
+    if(o.tipo==='inci')return'<div class="org-card"><div class="org-nombre">'+o.nombre+'</div><div style="font-size:12px;color:var(--ts);margin-bottom:4px">Incidencia (%)</div><div class="esc-d">'+[0,25,50,75,100].map(function(v,i){return'<div class="esc-pt" id="inc_'+o.id+'_'+i+'" onclick="setE(\'inc\',\''+o.id+'\','+v+','+i+')">'+v+'%</div>';}).join('')+'</div><div style="font-size:12px;color:var(--ts);margin:8px 0 4px">Severidad (%)</div><div class="esc-d">'+[0,10,25,50,75].map(function(v,i){return'<div class="esc-pt" id="sev_'+o.id+'_'+i+'" onclick="setE(\'sev\',\''+o.id+'\','+v+','+i+')">'+v+'%</div>';}).join('')+'</div></div>';
     return'';
   }).join('');
 }
 
-function setP(id,val){
-  if(!obsTemp[id])obsTemp[id]={tipo:'presencia'};
-  obsTemp[id].val=val;
-  const si=document.getElementById('ts_'+id),no=document.getElementById('tn_'+id);
-  if(si&&no){si.className='tog-o'+(val?' tog-v':'');no.className='tog-o'+(!val?' tog-r':'');}
-}
-
-function adjC(id,d){
-  if(!obsTemp[id])obsTemp[id]={tipo:'conteo',val:0,estadios:{}};
-  obsTemp[id].val=Math.max(0,(obsTemp[id].val||0)+d);
-  const el=document.getElementById('cv_'+id);if(el)el.textContent=obsTemp[id].val;
-}
-
-function toggleEst(orgId,est){
-  if(!obsTemp[orgId])obsTemp[orgId]={tipo:'conteo',val:0,estadios:{}};
-  if(!obsTemp[orgId].estadios)obsTemp[orgId].estadios={};
-  const cur=obsTemp[orgId].estadios[est]||0;
-  // Incrementar con cada toque, resetea a 0 si llega a 10
-  const nuevo=cur>=10?0:cur+1;
-  obsTemp[orgId].estadios[est]=nuevo;
-  // Actualizar total
-  const total=Object.values(obsTemp[orgId].estadios).reduce((a,b)=>a+b,0);
-  obsTemp[orgId].val=total;
-  const elV=document.getElementById('cv_'+orgId);if(elV)elV.textContent=total;
-  const elE=document.getElementById('estv_'+orgId+'_'+est);if(elE)elE.textContent=nuevo;
-  document.getElementById('est_'+orgId+'_'+est).className='est-btn'+(nuevo>0?' on':'');
-}
-
-function setE(tipo,id,val,idx){
-  if(!obsTemp[id])obsTemp[id]={tipo:'inci'};
-  obsTemp[id][tipo]=val;
-  const cls=['es1','es2','es3','es4','es5'];
-  for(let i=0;i<5;i++){const d=document.getElementById(tipo+'_'+id+'_'+i);if(d)d.className='esc-pt'+(i===idx?' '+cls[i]:'');}
-}
-
-function comprimirFoto(file, maxW, maxH, calidad){
-  return new Promise(resolve=>{
-    const img=new Image();
-    const url=URL.createObjectURL(file);
-    img.onload=()=>{
-      URL.revokeObjectURL(url);
-      let w=img.width, h=img.height;
-      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-      if(h>maxH){w=Math.round(w*maxH/h);h=maxH;}
-      const canvas=document.createElement('canvas');
-      canvas.width=w; canvas.height=h;
-      canvas.getContext('2d').drawImage(img,0,0,w,h);
-      resolve(canvas.toDataURL('image/jpeg', calidad));
-    };
-    img.onerror=()=>{ URL.revokeObjectURL(url); resolve(null); };
-    img.src=url;
-  });
-}
+function setP(id,val){ if(!obsTemp[id])obsTemp[id]={tipo:'presencia'}; obsTemp[id].val=val; var si=document.getElementById('ts_'+id),no=document.getElementById('tn_'+id); if(si&&no){si.className='tog-o'+(val?' tog-v':'');no.className='tog-o'+(!val?' tog-r':'');} }
+function adjC(id,d){ if(!obsTemp[id])obsTemp[id]={tipo:'conteo',val:0,estadios:{}}; obsTemp[id].val=Math.max(0,(obsTemp[id].val||0)+d); var el=document.getElementById('cv_'+id);if(el)el.textContent=obsTemp[id].val; }
+function toggleEst(orgId,est){ if(!obsTemp[orgId])obsTemp[orgId]={tipo:'conteo',val:0,estadios:{}}; if(!obsTemp[orgId].estadios)obsTemp[orgId].estadios={}; var cur=obsTemp[orgId].estadios[est]||0; var nuevo=cur>=10?0:cur+1; obsTemp[orgId].estadios[est]=nuevo; var total=Object.values(obsTemp[orgId].estadios).reduce(function(a,b){return a+b;},0); obsTemp[orgId].val=total; var elV=document.getElementById('cv_'+orgId);if(elV)elV.textContent=total; var elE=document.getElementById('estv_'+orgId+'_'+est);if(elE)elE.textContent=nuevo; document.getElementById('est_'+orgId+'_'+est).className='est-btn'+(nuevo>0?' on':''); }
+function setE(tipo,id,val,idx){ if(!obsTemp[id])obsTemp[id]={tipo:'inci'}; obsTemp[id][tipo]=val; var cls=['es1','es2','es3','es4','es5']; for(var i=0;i<5;i++){var d=document.getElementById(tipo+'_'+id+'_'+i);if(d)d.className='esc-pt'+(i===idx?' '+cls[i]:'');} }
 
 async function agregarFotosPanada(input){
-  for(const file of Array.from(input.files)){
-    // Comprimir a máximo 800x800 con calidad 0.6 (~50-80kb por foto)
-    const b64=await comprimirFoto(file, 800, 800, 0.6);
-    if(!b64) continue;
-    fotosTemp.push(b64);
-    const wrap=document.getElementById('fotoPrevWrap');
-    const img=document.createElement('img');
-    img.src=b64; img.className='foto-thumb';
-    wrap.insertBefore(img,wrap.firstChild);
+  for(var file of Array.from(input.files)){
+    var b64=await new Promise(function(r){var fr=new FileReader();fr.onload=function(e){r(e.target.result);};fr.readAsDataURL(file);});
+    var img=new Image();
+    await new Promise(function(r){img.onload=r;img.src=b64;});
+    var canvas=document.createElement('canvas');
+    var maxW=800,maxH=800,w=img.width,h=img.height;
+    if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+    if(h>maxH){w=Math.round(w*maxH/h);h=maxH;}
+    canvas.width=w;canvas.height=h;
+    canvas.getContext('2d').drawImage(img,0,0,w,h);
+    var compressed=canvas.toDataURL('image/jpeg',0.6);
+    fotosTemp.push(compressed);
+    var wrap=document.getElementById('fotoPrevWrap');
+    var imgEl=document.createElement('img');
+    imgEl.src=compressed;imgEl.style.cssText='width:72px;height:72px;border-radius:8px;object-fit:cover;border:1.5px solid var(--gb)';
+    wrap.insertBefore(imgEl,wrap.firstChild);
   }
 }
 
 function guardarPanada(){
-  const ses=getSes(); const cult=getCult(ses.cultId);
-  const todoOrg=[...(cult?.plagas||[]),...(cult?.enf||[])];
-  const obs=todoOrg.map(o=>{
-    const t=obsTemp[o.id];if(!t)return null;
-    if(o.tipo==='presencia'&&t.val===undefined)return null;
-    if(o.tipo==='conteo'&&(!t.val||t.val===0))return null;
-    if(o.tipo==='inci'&&t.inc===undefined&&t.sev===undefined)return null;
-    return{id:o.id,nombre:o.nombre,tipo:o.tipo,u:o.u,estadios:t.estadios||null,...t};
-  }).filter(Boolean);
-
-  // GPS automático al guardar
-  const guardar=(lat,lon)=>{
-    const pan={id:DB.id(),sesId:ses.id,fecha:Date.now(),lat,lon,notas:document.getElementById('iNotPan').value.trim(),operario:U?.nombre||'',obs,fotos:fotosTemp.slice()};
-    try {
-      const arr=DB.get('panadas');arr.push(pan);DB.set('panadas',arr);
-      cerrarM('mPanada');renderMonitoreo();
-    } catch(e) {
-      // Si falla por espacio, guardar sin fotos
-      console.warn('Sin espacio con fotos, guardando sin fotos:', e);
-      try {
-        pan.fotos=[];
-        const arr=DB.get('panadas');arr.push(pan);DB.set('panadas',arr);
-        cerrarM('mPanada');renderMonitoreo();
-        alert('⚠️ La pañada se guardó pero sin fotos por falta de espacio en el dispositivo. Intentá con menos fotos o de menor tamaño.');
-      } catch(e2) {
-        alert('❌ Error al guardar. El dispositivo no tiene espacio suficiente. Cerrá otras apps e intentá de nuevo.');
-      }
-    }
-  };
-
-  navigator.geolocation.getCurrentPosition(
-    pos=>guardar(pos.coords.latitude,pos.coords.longitude),
-    ()=>guardar(null,null),
-    {enableHighAccuracy:true,timeout:8000,maximumAge:30000}
-  );
+  var ses=getSes(); var cult=getCult(ses.cultId);
+  var todoOrg=(cult?cult.plagas:[]).concat(cult?cult.enf:[]);
+  var obs=todoOrg.map(function(o){ var t=obsTemp[o.id];if(!t)return null; if(o.tipo==='presencia'&&t.val===undefined)return null; if(o.tipo==='conteo'&&(!t.val||t.val===0))return null; if(o.tipo==='inci'&&t.inc===undefined&&t.sev===undefined)return null; return Object.assign({id:o.id,nombre:o.nombre,tipo:o.tipo,u:o.u},t); }).filter(Boolean);
+  function guardar(lat,lon){ var pan={id:DB.id(),sesId:ses.id,fecha:Date.now(),lat:lat,lon:lon,notas:document.getElementById('iNotPan').value.trim(),operario:U?U.nombre:'',obs:obs,fotos:fotosTemp.slice()}; try{var arr=DB.get('panadas');arr.push(pan);DB.set('panadas',arr);cerrarM('mPanada');renderMonitoreo();}catch(e){pan.fotos=[];var arr=DB.get('panadas');arr.push(pan);DB.set('panadas',arr);cerrarM('mPanada');renderMonitoreo();alert('Pañada guardada sin fotos por espacio insuficiente.');} }
+  navigator.geolocation.getCurrentPosition(function(pos){guardar(pos.coords.latitude,pos.coords.longitude);},function(){guardar(null,null);},{enableHighAccuracy:true,timeout:8000,maximumAge:30000});
 }
 
-// ═══════════════════════════════════════
-// IDENTIFICADOR IA
-// ═══════════════════════════════════════
-async function analizarFotoIA(input){
+// ═══ IDENTIFICADOR IA ═══
+async function analizarFotoIA(input,resultId){
   if(!input.files||!input.files[0])return;
-  const resultId=input.id==='iaFotoEnPanada'?'iaResultPan':'iaResult';
-  const el=document.getElementById(resultId);
-  el.style.display='block';
-  el.innerHTML='⏳ Analizando la imagen...';
-  const file=input.files[0];
-  const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result.split(',')[1]);fr.readAsDataURL(file);});
+  var el=document.getElementById(resultId);
+  el.style.display='block'; el.textContent='⏳ Analizando...';
+  var file=input.files[0];
+  var b64=await new Promise(function(r){var fr=new FileReader();fr.onload=function(e){r(e.target.result.split(',')[1]);};fr.readAsDataURL(file);});
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:b64}},
-          {type:'text',text:'Sos un ingeniero agrónomo especialista en sanidad vegetal para la zona de Bandera, Santiago del Estero, Argentina. Analizá esta imagen de campo y respondé en español:\n1. ¿Qué plaga, enfermedad o problema fitosanitario ves?\n2. ¿En qué cultivo está?\n3. Nivel de daño estimado (bajo/moderado/alto)\n4. Recomendación de manejo inmediata (máximo 3 líneas)\nSé directo y conciso.'}
-        ]}]
-      })
-    });
-    const data=await res.json();
-    const txt=data.content?.[0]?.text||'No se pudo analizar la imagen.';
-    el.innerHTML=txt.replace(/\n/g,'<br>');
-  }catch(err){
-    el.innerHTML='⚠️ Sin conexión para el análisis con IA. Guardá la foto y consultá cuando tengas señal.';
-  }
+    var res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:b64}},{type:'text',text:'Sos agrónomo especialista en sanidad vegetal para Bandera, Santiago del Estero, Argentina. Analizá esta imagen y respondé en español:\n1. ¿Qué plaga o enfermedad ves?\n2. Nivel de daño (bajo/moderado/alto)\n3. Recomendación inmediata (máx 2 líneas)'}]}]})});
+    var data=await res.json();
+    el.textContent=data.content&&data.content[0]?data.content[0].text:'No se pudo analizar.';
+  }catch(e){ el.textContent='⚠️ Sin conexión para análisis IA.'; }
 }
 
-// ═══════════════════════════════════════
-// MODAL LOTE
-// ═══════════════════════════════════════
+// ═══ LOTE ═══
 function abrirModalLote(){
   document.getElementById('iNomLot').value='';
   document.getElementById('iHaLot').value='';
   document.getElementById('gpsLotInfo').textContent='';
   gpsLot=null;
-  const sel=document.getElementById('iCultLot');
-  sel.innerHTML='<option value="">— Sin definir —</option>'+todosCult().map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  var sel=document.getElementById('iCultLot');
+  sel.innerHTML='<option value="">— Sin definir —</option>'+todosCult().map(function(c){return'<option value="'+c.id+'">'+c.nombre+'</option>';}).join('');
   document.getElementById('mLote').classList.add('ab');
 }
-function gpsAutoLote(){
-  const btn=document.getElementById('bGps');
-  btn.textContent='⏳...';btn.disabled=true;
-  navigator.geolocation.getCurrentPosition(pos=>{
-    gpsLot={lat:pos.coords.latitude,lon:pos.coords.longitude};
-    document.getElementById('gpsLotInfo').textContent=`✔ ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
-    btn.textContent='📍 Mi ubicación';btn.disabled=false;
-  },()=>{document.getElementById('gpsLotInfo').textContent='⚠ No se pudo obtener GPS';btn.textContent='📍 Mi ubicación';btn.disabled=false;},{enableHighAccuracy:true,timeout:12000});
-}
-function guardarLote(){
-  const n=document.getElementById('iNomLot').value.trim();
-  if(!n){alert('El nombre es obligatorio');return;}
-  const arr=DB.get('lotes');
-  arr.push({id:DB.id(),camId:S.camId,nombre:n,ha:document.getElementById('iHaLot').value.trim(),cultId:document.getElementById('iCultLot').value||null,lat:gpsLot?.lat,lon:gpsLot?.lon,fecha:Date.now()});
-  DB.set('lotes',arr);cerrarM('mLote');renderLotes();
-}
+function gpsAutoLote(){ var btn=document.getElementById('bGps');btn.textContent='⏳...';btn.disabled=true; navigator.geolocation.getCurrentPosition(function(pos){gpsLot={lat:pos.coords.latitude,lon:pos.coords.longitude};document.getElementById('gpsLotInfo').textContent='✔ '+pos.coords.latitude.toFixed(5)+', '+pos.coords.longitude.toFixed(5);btn.textContent='📍 Mi ubicación';btn.disabled=false;},function(){document.getElementById('gpsLotInfo').textContent='⚠ No se pudo obtener GPS';btn.textContent='📍 Mi ubicación';btn.disabled=false;},{enableHighAccuracy:true,timeout:12000}); }
+function guardarLote(){ var n=document.getElementById('iNomLot').value.trim();if(!n){alert('El nombre es obligatorio');return;} var arr=DB.get('lotes');arr.push({id:DB.id(),camId:S.camId,nombre:n,ha:document.getElementById('iHaLot').value.trim(),cultId:document.getElementById('iCultLot').value||null,lat:gpsLot?gpsLot.lat:null,lon:gpsLot?gpsLot.lon:null,fecha:Date.now()});DB.set('lotes',arr);cerrarM('mLote');renderLotes(); }
 
-// ═══════════════════════════════════════
-// MAPA PARA LOTE
-// ═══════════════════════════════════════
-function abrirMapaLote(){ cerrarM('mLote'); document.getElementById('mapaPanel').classList.add('ab'); setTimeout(()=>initMapaLote(),150); }
-function initMapaLote(){
-  if(mapa){mapa.remove();mapa=null;marker=null;}
-  const latI=gpsLot?.lat||-27.9,lonI=gpsLot?.lon||-62.26,z=gpsLot?15:12;
-  mapa=L.map('mapaDiv',{zoomControl:true,attributionControl:false}).setView([latI,lonI],z);
-  L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{subdomains:['mt0','mt1','mt2','mt3'],maxZoom:20}).addTo(mapa);
-  if(gpsLot)colocarPin(gpsLot.lat,gpsLot.lon);
-  mapa.on('click',e=>colocarPin(e.latlng.lat,e.latlng.lng));
-  setTimeout(()=>mapa.invalidateSize(),300);
-  navigator.geolocation.getCurrentPosition(pos=>{
-    if(!gpsLot)mapa.setView([pos.coords.latitude,pos.coords.longitude],15);
-    L.circleMarker([pos.coords.latitude,pos.coords.longitude],{radius:8,color:'#1a3a1a',fillColor:'#4a9c4a',fillOpacity:.8,weight:2}).addTo(mapa).bindPopup('Tu ubicación');
-  },()=>{},{enableHighAccuracy:true,timeout:8000});
-}
-function colocarPin(lat,lon){
-  if(marker)mapa.removeLayer(marker);
-  const icon=L.divIcon({html:'<div style="font-size:34px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))">📍</div>',iconSize:[34,34],iconAnchor:[17,34],className:''});
-  marker=L.marker([lat,lon],{icon,draggable:true}).addTo(mapa);
-  marker.on('dragend',e=>{const p=e.target.getLatLng();document.getElementById('mapaCoord').textContent=`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;});
-  document.getElementById('mapaCoord').textContent=`${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-  document.getElementById('mapaInstr').textContent='PIN colocado · Arrastralo para ajustar';
-}
-function confirmarMapa(){
-  if(!marker){alert('Tocá el mapa para colocar un PIN');return;}
-  const p=marker.getLatLng();gpsLot={lat:p.lat,lon:p.lng};
-  document.getElementById('gpsLotInfo').textContent=`✔ ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
-  cerrarMapa();document.getElementById('mLote').classList.add('ab');
-}
-function cerrarMapa(){ document.getElementById('mapaPanel').classList.remove('ab'); if(mapa){mapa.remove();mapa=null;marker=null;} }
+// ═══ MAPA ═══
+function abrirMapaLote(){ cerrarM('mLote'); document.getElementById('mapaPanel').classList.add('ab'); setTimeout(function(){initMapaLote();},150); }
+function initMapaLote(){ if(mapaObj){mapaObj.remove();mapaObj=null;mapaMarker=null;} var latI=gpsLot?gpsLot.lat:-27.9,lonI=gpsLot?gpsLot.lon:-62.26,z=gpsLot?15:12; mapaObj=L.map('mapaDiv',{zoomControl:true,attributionControl:false}).setView([latI,lonI],z); L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{subdomains:['mt0','mt1','mt2','mt3'],maxZoom:20}).addTo(mapaObj); if(gpsLot)colocarPin(gpsLot.lat,gpsLot.lon); mapaObj.on('click',function(e){colocarPin(e.latlng.lat,e.latlng.lng);}); setTimeout(function(){mapaObj.invalidateSize();},300); navigator.geolocation.getCurrentPosition(function(pos){if(!gpsLot)mapaObj.setView([pos.coords.latitude,pos.coords.longitude],15);L.circleMarker([pos.coords.latitude,pos.coords.longitude],{radius:8,color:'#1a3a1a',fillColor:'#4a9c4a',fillOpacity:.8,weight:2}).addTo(mapaObj);},function(){},{enableHighAccuracy:true,timeout:8000}); }
+function colocarPin(lat,lon){ if(mapaMarker)mapaObj.removeLayer(mapaMarker); var icon=L.divIcon({html:'<div style="font-size:34px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))">📍</div>',iconSize:[34,34],iconAnchor:[17,34],className:''}); mapaMarker=L.marker([lat,lon],{icon:icon,draggable:true}).addTo(mapaObj); mapaMarker.on('dragend',function(e){var p=e.target.getLatLng();document.getElementById('mapaCoord').textContent=p.lat.toFixed(5)+', '+p.lng.toFixed(5);}); document.getElementById('mapaCoord').textContent=lat.toFixed(5)+', '+lon.toFixed(5); document.getElementById('mapaInstr').textContent='PIN colocado · Arrastralo para ajustar'; }
+function confirmarMapa(){ if(!mapaMarker){alert('Tocá el mapa para colocar un PIN');return;} var p=mapaMarker.getLatLng();gpsLot={lat:p.lat,lon:p.lng}; document.getElementById('gpsLotInfo').textContent='✔ '+p.lat.toFixed(5)+', '+p.lng.toFixed(5); cerrarMapa(); document.getElementById('mLote').classList.add('ab'); }
+function cerrarMapa(){ document.getElementById('mapaPanel').classList.remove('ab'); if(mapaObj){mapaObj.remove();mapaObj=null;mapaMarker=null;} }
 
-// ═══════════════════════════════════════
-// CRUD
-// ═══════════════════════════════════════
-function guardarCliente(){
-  const n=document.getElementById('iNomCli').value.trim();if(!n){alert('El nombre es obligatorio');return;}
-  const arr=DB.get('clientes');arr.push({id:DB.id(),nombre:n,tel:document.getElementById('iTelCli').value.trim(),notas:document.getElementById('iNotCli').value.trim(),fecha:Date.now()});
-  DB.set('clientes',arr);cerrarM('mCliente');renderClientes();
-}
-function guardarCampo(){
-  const n=document.getElementById('iNomCam').value.trim();if(!n){alert('El nombre es obligatorio');return;}
-  const arr=DB.get('campos');arr.push({id:DB.id(),cliId:S.cliId,nombre:n,ha:document.getElementById('iHaCam').value.trim(),fecha:Date.now()});
-  DB.set('campos',arr);cerrarM('mCampo');renderCampos();
-}
-function guardarCultivoExtra(){
-  const n=document.getElementById('iNomCult').value.trim();if(!n){alert('Ingresá un nombre');return;}
-  const arr=DB.get('cultivos_ex');arr.push({id:'cx_'+DB.id(),nombre:n,fecha:Date.now()});
-  DB.set('cultivos_ex',arr);cerrarM('mCultivo');renderConfig();
-}
-function borrarCultEx(id){if(!confirm('¿Eliminar?'))return;DB.set('cultivos_ex',DB.get('cultivos_ex').filter(c=>c.id!==id));renderConfig();}
+// ═══ CRUD ═══
+function guardarCliente(){ var n=document.getElementById('iNomCli').value.trim();if(!n){alert('El nombre es obligatorio');return;} var arr=DB.get('clientes');arr.push({id:DB.id(),nombre:n,tel:document.getElementById('iTelCli').value.trim(),notas:document.getElementById('iNotCli').value.trim(),fecha:Date.now()});DB.set('clientes',arr);cerrarM('mCliente');renderClientes(); }
+function guardarCampo(){ var n=document.getElementById('iNomCam').value.trim();if(!n){alert('El nombre es obligatorio');return;} var arr=DB.get('campos');arr.push({id:DB.id(),cliId:S.cliId,nombre:n,ha:document.getElementById('iHaCam').value.trim(),fecha:Date.now()});DB.set('campos',arr);cerrarM('mCampo');renderCampos(); }
+function guardarCultivoExtra(){ var n=document.getElementById('iNomCult').value.trim();if(!n){alert('Ingresá un nombre');return;} var arr=DB.get('cultivos_ex');arr.push({id:'cx_'+DB.id(),nombre:n,fecha:Date.now()});DB.set('cultivos_ex',arr);cerrarM('mCultivo');renderConfig(); }
+function borrarCultEx(id){ if(!confirm('¿Eliminar?'))return;DB.set('cultivos_ex',DB.get('cultivos_ex').filter(function(c){return c.id!==id;}));renderConfig(); }
 
-// ═══════════════════════════════════════
-// WHATSAPP
-// ═══════════════════════════════════════
+// ═══ WHATSAPP ═══
 function enviarWA(){
-  const sid=S.sesId;
-  const ses=DB.get('sesiones').find(s=>s.id===sid);if(!ses)return;
-  const lot=DB.get('lotes').find(l=>l.id===ses.lotId);
-  const cam=DB.get('campos').find(f=>f.id===lot?.camId);
-  const cli=DB.get('clientes').find(c=>c.id===cam?.cliId);
-  const cult=getCult(ses.cultId);
-  const pans=DB.get('panadas').filter(p=>p.sesId===sid);
-  const orgM={};
-  pans.forEach(p=>(p.obs||[]).forEach(o=>{
-    if(!orgM[o.id])orgM[o.id]={...o,vals:[],pres:[],incs:[],sevs:[],estMap:{}};
-    if(o.tipo==='conteo'){orgM[o.id].vals.push(o.val||0);if(o.estadios)Object.entries(o.estadios).forEach(([k,v])=>{orgM[o.id].estMap[k]=(orgM[o.id].estMap[k]||0)+v;});}
-    else if(o.tipo==='presencia')orgM[o.id].pres.push(o.val);
-    else if(o.tipo==='inci'){if(o.inc!==undefined)orgM[o.id].incs.push(o.inc);if(o.sev!==undefined)orgM[o.id].sevs.push(o.sev);}
-  }));
-  let lineas='';
-  Object.values(orgM).forEach(o=>{
-    if(o.tipo==='conteo'){const p=(o.vals.reduce((a,b)=>a+b,0)/o.vals.length).toFixed(1);let l=`  • ${o.nombre}: ${p} ${o.u||'u'}/pañada`;if(Object.keys(o.estMap).length)l+=` (${Object.entries(o.estMap).filter(([k,v])=>v>0).map(([k,v])=>k+':'+v).join(', ')})`;lineas+=l+'\n';}
-    else if(o.tipo==='presencia'){const p=Math.round(o.pres.filter(Boolean).length/o.pres.length*100);lineas+=`  • ${o.nombre}: ${p}% de pañadas con presencia\n`;}
-    else if(o.tipo==='inci'){const pi=o.incs.length?(o.incs.reduce((a,b)=>a+b,0)/o.incs.length).toFixed(0):'-';const ps=o.sevs.length?(o.sevs.reduce((a,b)=>a+b,0)/o.sevs.length).toFixed(0):'-';lineas+=`  • ${o.nombre}: incidencia ${pi}%, severidad ${ps}%\n`;}
-  });
-  const txt=`🌱 *INFORME DE MONITOREO — AgroMonitor*\n━━━━━━━━━━━━━━━━━━━━━━\n👤 Cliente: ${cli?.nombre||'-'}\n🗺️ Campo: ${cam?.nombre||'-'}\n🌾 Lote: ${lot?.nombre||'-'}${lot?.ha?' ('+lot.ha+' ha)':''}\n🌱 Cultivo: ${cult?.nombre||'-'}\n📅 Fecha: ${fF(ses.fecha)}\n📍 Pañadas: ${pans.length}\n━━━━━━━━━━━━━━━━━━━━━━\n🔬 *RESULTADOS:*\n${lineas||'  Sin hallazgos\n'}━━━━━━━━━━━━━━━━━━━━━━\n_Generado con AgroMonitor_`;
+  var sid=S.sesId; var ses=DB.get('sesiones').find(function(s){return s.id===sid;});if(!ses)return;
+  var lot=DB.get('lotes').find(function(l){return l.id===ses.lotId;}); var cam=DB.get('campos').find(function(f){return f.id===(lot&&lot.camId);}); var cli=DB.get('clientes').find(function(c){return c.id===(cam&&cam.cliId);}); var cult=getCult(ses.cultId); var pans=DB.get('panadas').filter(function(p){return p.sesId===sid;});
+  var orgM={};
+  pans.forEach(function(p){(p.obs||[]).forEach(function(o){if(!orgM[o.id])orgM[o.id]=Object.assign({},o,{vals:[],pres:[],incs:[],sevs:[]});if(o.tipo==='conteo')orgM[o.id].vals.push(o.val||0);else if(o.tipo==='presencia')orgM[o.id].pres.push(o.val);else if(o.tipo==='inci'){if(o.inc!==undefined)orgM[o.id].incs.push(o.inc);if(o.sev!==undefined)orgM[o.id].sevs.push(o.sev);}});});
+  var lineas='';
+  Object.values(orgM).forEach(function(o){ if(o.tipo==='conteo'){var p=(o.vals.reduce(function(a,b){return a+b;},0)/o.vals.length).toFixed(1);lineas+='  • '+o.nombre+': '+p+' '+(o.u||'u')+'/pañada\n';} else if(o.tipo==='presencia'){var p=Math.round(o.pres.filter(Boolean).length/o.pres.length*100);lineas+='  • '+o.nombre+': '+p+'% de pañadas\n';} else if(o.tipo==='inci'){var pi=o.incs.length?(o.incs.reduce(function(a,b){return a+b;},0)/o.incs.length).toFixed(0):'-';var ps=o.sevs.length?(o.sevs.reduce(function(a,b){return a+b;},0)/o.sevs.length).toFixed(0):'-';lineas+='  • '+o.nombre+': incidencia '+pi+'%, severidad '+ps+'%\n';} });
+  var txt='🌱 *INFORME DE MONITOREO — AgroMonitor*\n━━━━━━━━━━━━━━━━━━━━━━\n👤 Cliente: '+(cli?cli.nombre:'-')+'\n🗺️ Campo: '+(cam?cam.nombre:'-')+'\n🌾 Lote: '+(lot?lot.nombre:'-')+(lot&&lot.ha?' ('+lot.ha+' ha)':'')+'\n🌱 Cultivo: '+(cult?cult.nombre:'-')+'\n📅 Fecha: '+fF(ses.fecha)+'\n📍 Pañadas: '+pans.length+'\n━━━━━━━━━━━━━━━━━━━━━━\n🔬 *RESULTADOS:*\n'+(lineas||'  Sin hallazgos\n')+'━━━━━━━━━━━━━━━━━━━━━━\n_Generado con AgroMonitor_';
   window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');
 }
 
-// ═══════════════════════════════════════
-// INFORME PDF
-// ═══════════════════════════════════════
-function abrirInformePDF() {
-  var sid = S.sesId;
-  var ses = DB.get('sesiones').find(function(s){ return s.id === sid; });
-  if (!ses) return;
-  var lot = DB.get('lotes').find(function(l){ return l.id === ses.lotId; });
-  var cam = DB.get('campos').find(function(f){ return f.id === (lot && lot.camId); });
-  var cli = DB.get('clientes').find(function(c){ return c.id === (cam && cam.cliId); });
-  var cult = getCult(ses.cultId);
-  var pans = DB.get('panadas').filter(function(p){ return p.sesId === sid; });
-  var txt = 'INFORME AGROMONITOR\n';
-  txt += 'Cliente: ' + (cli ? cli.nombre : '-') + '\n';
-  txt += 'Campo: ' + (cam ? cam.nombre : '-') + '\n';
-  txt += 'Lote: ' + (lot ? lot.nombre : '-') + '\n';
-  txt += 'Cultivo: ' + (cult ? cult.nombre : '-') + '\n';
-  txt += 'Fecha: ' + fF(ses.fecha) + '\n';
-  txt += 'Panadas: ' + pans.length + '\n';
-  alert(txt);
-}
-
-
-function enviarWA(){
-  const sid=S.sesId;
-  const ses=DB.get('sesiones').find(s=>s.id===sid);if(!ses)return;
-  const lot=DB.get('lotes').find(l=>l.id===ses.lotId);
-  const cam=DB.get('campos').find(f=>f.id===lot?.camId);
-  const cli=DB.get('clientes').find(c=>c.id===cam?.cliId);
-  const cult=getCult(ses.cultId);
-  const pans=DB.get('panadas').filter(p=>p.sesId===sid);
-  const orgM={};
-  pans.forEach(p=>(p.obs||[]).forEach(o=>{
-    if(!orgM[o.id])orgM[o.id]={...o,vals:[],pres:[],incs:[],sevs:[],estMap:{}};
-    if(o.tipo==='conteo'){orgM[o.id].vals.push(o.val||0);if(o.estadios)Object.entries(o.estadios).forEach(([k,v])=>{orgM[o.id].estMap[k]=(orgM[o.id].estMap[k]||0)+v;});}
-    else if(o.tipo==='presencia')orgM[o.id].pres.push(o.val);
-    else if(o.tipo==='inci'){if(o.inc!==undefined)orgM[o.id].incs.push(o.inc);if(o.sev!==undefined)orgM[o.id].sevs.push(o.sev);}
-  }));
-  let lineas='';
-  Object.values(orgM).forEach(o=>{
-    if(o.tipo==='conteo'){const p=(o.vals.reduce((a,b)=>a+b,0)/o.vals.length).toFixed(1);let l=`  • ${o.nombre}: ${p} ${o.u||'u'}/pañada`;if(Object.keys(o.estMap).length)l+=` (${Object.entries(o.estMap).filter(([k,v])=>v>0).map(([k,v])=>k+':'+v).join(', ')})`;lineas+=l+'\n';}
-    else if(o.tipo==='presencia'){const p=Math.round(o.pres.filter(Boolean).length/o.pres.length*100);lineas+=`  • ${o.nombre}: ${p}% de pañadas con presencia\n`;}
-    else if(o.tipo==='inci'){const pi=o.incs.length?(o.incs.reduce((a,b)=>a+b,0)/o.incs.length).toFixed(0):'-';const ps=o.sevs.length?(o.sevs.reduce((a,b)=>a+b,0)/o.sevs.length).toFixed(0):'-';lineas+=`  • ${o.nombre}: incidencia ${pi}%, severidad ${ps}%\n`;}
-  });
-  const txt=`🌱 *INFORME DE MONITOREO — AgroMonitor*\n━━━━━━━━━━━━━━━━━━━━━━\n👤 Cliente: ${cli?.nombre||'-'}\n🗺️ Campo: ${cam?.nombre||'-'}\n🌾 Lote: ${lot?.nombre||'-'}${lot?.ha?' ('+lot.ha+' ha)':''}\n🌱 Cultivo: ${cult?.nombre||'-'}\n📅 Fecha: ${fF(ses.fecha)}\n📍 Pañadas: ${pans.length}\n━━━━━━━━━━━━━━━━━━━━━━\n🔬 *RESULTADOS:*\n${lineas||'  Sin hallazgos\n'}━━━━━━━━━━━━━━━━━━━━━━\n_Generado con AgroMonitor_`;
-  window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');
-}
-
-// ═══════════════════════════════════════
-// INFORME PDF
-// ═══════════════════════════════════════
-function abrirInformePDF() {
-  const sid = S.sesId;
-  const ses = DB.get('sesiones').find(s => s.id === sid); if (!ses) return;
-  const lot = DB.get('lotes').find(l => l.id === ses.lotId);
-  const cam = DB.get('campos').find(f => f.id === lot?.camId);
-  const cli = DB.get('clientes').find(c => c.id === cam?.cliId);
-  const cult = getCult(ses.cultId);
-  const pans = DB.get('panadas').filter(p => p.sesId === sid);
-
-  const orgM = {};
-  pans.forEach(p => (p.obs||[]).forEach(o => {
-    if (!orgM[o.id]) orgM[o.id] = {...o, vals:[], pres:[], incs:[], sevs:[], estMap:{}};
-    if (o.tipo==='conteo') { orgM[o.id].vals.push(o.val||0); if(o.estadios) Object.entries(o.estadios).forEach(([k,v])=>{orgM[o.id].estMap[k]=(orgM[o.id].estMap[k]||0)+v;}); }
-    else if (o.tipo==='presencia') orgM[o.id].pres.push(o.val);
-    else if (o.tipo==='inci') { if(o.inc!==undefined) orgM[o.id].incs.push(o.inc); if(o.sev!==undefined) orgM[o.id].sevs.push(o.sev); }
-  }));
-
-  const prom = a => a.length ? (a.reduce((x,y)=>x+y,0)/a.length).toFixed(1) : '-';
-  const presP = a => a.length ? Math.round(a.filter(Boolean).length/a.length*100) : 0;
-
-  let filas = '';
-  Object.values(orgM).forEach(o => {
-    let res = '';
-    if (o.tipo==='conteo') { res = prom(o.vals)+' '+(o.u||'u')+'/pañada'; }
-    else if (o.tipo==='presencia') { res = presP(o.pres)+'% de pañadas'; }
-    else if (o.tipo==='inci') { res = 'Incidencia: '+prom(o.incs)+'% · Severidad: '+prom(o.sevs)+'%'; }
-    const color = o.tipo==='inci' ? '#d4820a' : '#c0392b';
-    filas += '<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px">'+o.nombre+'</td>';
-    filas += '<td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;color:'+color+';font-weight:600">'+(o.tipo==='inci'?'Enfermedad':'Plaga')+'</td>';
-    filas += '<td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px">'+res+'</td></tr>';
-  });
-
-  const conGPS = pans.filter(p => p.lat && p.lon);
-  const latC = conGPS.length ? conGPS.reduce((a,p)=>a+p.lat,0)/conGPS.length : (lot?.lat||-27.9);
-  const lonC = conGPS.length ? conGPS.reduce((a,p)=>a+p.lon,0)/conGPS.length : (lot?.lon||-62.26);
-  
-    let pinsCode = '';
-  conGPS.forEach((p, i) => {
-    pinsCode += 'L.circleMarker([' + p.lat + ',' + p.lon + '],{radius:16,color:"#fff",fillColor:"#1a3a1a",fillOpacity:1,weight:2}).addTo(map).bindPopup("Panada ' + (i+1) + '");';
-  });
-  
-  let fitCode = '';
-  if (conGPS.length > 1) {
-    fitCode = 'map.fitBounds(['+conGPS.map(p=>'['+p.lat+','+p.lon+']').join(',')+'],{padding:[40,40]});';
-  }
-
-  let filasGPS = '';
-  pans.forEach((p,i) => {
-    filasGPS += '<tr><td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">Pañada #'+(i+1)+'</td>';
-    filasGPS += '<td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">'+fH(p.fecha)+'</td>';
-    filasGPS += '<td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:12px;color:#666">'+(p.lat?p.lat.toFixed(5)+', '+p.lon.toFixed(5):'Sin GPS')+'</td></tr>';
-  });
-
-  const w = window.open('', '_blank');
-  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">');
-  w.document.write('<meta name="viewport" content="width=device-width,initial-scale=1">');
-  w.document.write('<title>Informe AgroMonitor</title>');
-  w.document.write('<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>');if(d)d.textContent='●'.repeat(_pin.length);}
-function pB(){_pin=_pin.slice(0,-1);var d=document.getElementById('pinDisplay');if(d)d.textContent=_pin.length?'●'.repeat(_pin.length):'—';}
-function pOK(){
-  var u=_u[_pin];
-  if(u){
-    try{localStorage.setItem('am_ses',JSON.stringify({u:u,ts:Date.now()}));}catch(e){}
-    var login=document.getElementById('login');
-    var app=document.getElementById('app');
-    if(login)login.classList.add('oculto');
-    if(app)app.style.display='';
-    if(typeof renderPant==='function')renderPant('Inicio');
-    else setTimeout(function(){if(typeof renderPant==='function')renderPant('Inicio');},500);
-  }else{
-    var err=document.getElementById('lErr');
-    if(err)err.style.display='block';
-    _pin='';
-    var d=document.getElementById('pinDisplay');
-    if(d)d.textContent='—';
-  }
-}
-</script>
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyD5K1Aaw0v5a6fhYmEmjEGByebvXLUad7o",
-  authDomain: "agromonitor-e2097.firebaseapp.com",
-  projectId: "agromonitor-e2097",
-  storageBucket: "agromonitor-e2097.firebasestorage.app",
-  messagingSenderId: "41620431429",
-  appId: "1:41620431429:web:af9e6a547d86d78cdbb92c"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-</script>');
-  w.document.write('<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>');
-  w.document.write('<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:sans-serif;background:#f5f5f3}.page{max-width:800px;margin:0 auto;background:white}@media print{.no-print{display:none}}');
-  w.document.write('.hdr{background:#1a3a1a;color:white;padding:24px 28px}.hdr-t{font-size:22px;font-weight:700;margin-bottom:4px}.hdr-s{font-size:13px;opacity:.75}');
-  w.document.write('.grid{display:grid;grid-template-columns:1fr 1fr;border-bottom:2px solid #1a3a1a}.dato{padding:14px 20px;border-right:1px solid #e8e8e4;border-bottom:1px solid #e8e8e4}.dato:nth-child(even){border-right:none}.dl{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:3px}.dv{font-size:15px;font-weight:600}');
-  w.document.write('.sec{padding:20px 24px;border-bottom:1px solid #e8e8e4}.sec-t{font-size:12px;font-weight:700;color:#1a3a1a;text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px}');
-  w.document.write('table{width:100%;border-collapse:collapse}th{background:#f5f5f3;padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:#666;text-transform:uppercase;border-bottom:2px solid #e0e0dc}');
-  w.document.write('#mapa{height:350px;border-radius:10px;border:1px solid #e0e0dc}.ftr{background:#f5f5f3;padding:16px 24px;display:flex;justify-content:space-between;font-size:12px;color:#888}');
-  w.document.write('.btn-imp{position:fixed;bottom:20px;right:20px;background:#1a3a1a;color:white;border:none;border-radius:12px;padding:14px 20px;font-size:15px;font-weight:700;cursor:pointer}</style></head><body>');
-  w.document.write('<div class="page">');
-  w.document.write('<div class="hdr"><div class="hdr-t">🌱 Informe de Monitoreo — AgroMonitor</div><div class="hdr-s">'+fF(ses.fecha)+' · '+pans.length+' pañada'+(pans.length!==1?'s':'')+'</div></div>');
-  w.document.write('<div class="grid">');
-  w.document.write('<div class="dato"><div class="dl">Cliente</div><div class="dv">'+(cli?.nombre||'-')+'</div></div>');
-  w.document.write('<div class="dato"><div class="dl">Campo</div><div class="dv">'+(cam?.nombre||'-')+'</div></div>');
-  w.document.write('<div class="dato"><div class="dl">Lote</div><div class="dv">'+(lot?.nombre||'-')+(lot?.ha?' ('+lot.ha+' ha)':'')+'</div></div>');
-  w.document.write('<div class="dato"><div class="dl">Cultivo</div><div class="dv">'+(cult?.nombre||'-')+'</div></div>');
-  w.document.write('<div class="dato"><div class="dl">Fecha</div><div class="dv">'+fF(ses.fecha)+'</div></div>');
-  w.document.write('<div class="dato"><div class="dl">Pañadas</div><div class="dv">'+pans.length+'</div></div>');
-  w.document.write('</div>');
-  w.document.write('<div class="sec"><div class="sec-t">📍 Mapa de pañadas</div><div id="mapa"></div></div>');
-  w.document.write('<div class="sec"><div class="sec-t">🔬 Resultados</div>');
-  if (filas) {
-    w.document.write('<table><thead><tr><th>Organismo</th><th>Tipo</th><th>Resultado</th></tr></thead><tbody>'+filas+'</tbody></table>');
-  } else {
-    w.document.write('<p style="padding:14px;color:#888;font-size:14px">Sin hallazgos registrados</p>');
-  }
-  w.document.write('</div>');
-  w.document.write('<div class="sec"><div class="sec-t">📡 GPS por pañada</div><table><thead><tr><th>Pañada</th><th>Hora</th><th>Coordenadas</th></tr></thead><tbody>'+filasGPS+'</tbody></table></div>');
-  w.document.write('<div class="ftr"><span>Generado con AgroMonitor</span><span>'+new Date().toLocaleString('es-AR')+'</span></div>');
-  w.document.write('</div>');
-  w.document.write('<button class="btn-imp no-print" onclick="window.print()">🖨️ Guardar como PDF</button>');
-  w.document.write('<script>');
-  w.document.write('var map=L.map("mapa",{zoomControl:true,attributionControl:false}).setView(['+latC+','+lonC+'],15);');
-  w.document.write('L.tileLayer("https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}",{subdomains:["mt0","mt1","mt2","mt3"],maxZoom:20}).addTo(map);');
-  w.document.write(pinsCode);
-  w.document.write(fitCode);
-  w.document.write('setTimeout(function(){map.invalidateSize();},300);');
-  w.document.write('<\/script></body></html>');
-  w.document.close();
-}
-
-
-// ═══════════════════════════════════════
-// ARRANQUE
-// ═══════════════════════════════════════
+// ═══ ARRANQUE ═══
 iniciarApp();
 </script>
 </body>
