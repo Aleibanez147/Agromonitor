@@ -133,18 +133,18 @@ body{font-family:var(--ff);background:var(--gc);color:var(--tp);min-height:100vh
     <div id="lErr" style="background:#fdecea;border:1px solid #f5c6c3;color:#8a1f18;padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;display:none">PIN incorrecto</div>
     <div id="pinDisplay" style="font-size:36px;text-align:center;letter-spacing:14px;padding:14px;color:#1a3a1a;background:#f5f5f3;border-radius:10px;margin-bottom:14px">—</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(1)">1</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(2)">2</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(3)">3</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(4)">4</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(5)">5</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(6)">6</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(7)">7</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(8)">8</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(9)">9</button>
-      <button style="padding:18px;font-size:18px;border-radius:10px;border:1.5px solid #ddd;background:#f5f5f3;cursor:pointer" onclick="window.pB()">⌫</button>
-      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="window.pP(0)">0</button>
-      <button style="padding:18px;font-size:16px;font-weight:700;border-radius:10px;border:none;background:#1a3a1a;color:white;cursor:pointer" onclick="window.pOK()">OK</button>
+      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="pP(1)">1</button>
+      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="pP(2)">2</button>
+      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="pP(3)">3</button>
+      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="pP(4)">4</button>
+      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="pP(5)">5</button>
+      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="pP(6)">6</button>
+      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="pP(7)">7</button>
+      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="pP(8)">8</button>
+      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="pP(9)">9</button>
+      <button style="padding:18px;font-size:18px;border-radius:10px;border:1.5px solid #ddd;background:#f5f5f3;cursor:pointer" onclick="pB()">⌫</button>
+      <button style="padding:18px;font-size:22px;font-weight:700;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer" onclick="pP(0)">0</button>
+      <button style="padding:18px;font-size:16px;font-weight:700;border-radius:10px;border:none;background:#1a3a1a;color:white;cursor:pointer" onclick="pOK()">OK</button>
     </div>
   </div>
 </div>
@@ -456,9 +456,6 @@ actualizarOffline();
 // ═══════════════════════════════════════
 // LOGIN
 // ═══════════════════════════════════════
-window.pP=function(n){if(_pin.length>=6)return;_pin+=n;document.getElementById('pinDisplay').textContent='●'.repeat(_pin.length);};
-window.pB=function(){_pin=_pin.slice(0,-1);document.getElementById('pinDisplay').textContent=_pin.length?'●'.repeat(_pin.length):'—';};
-window.pOK=function(){var u=_u[_pin];if(u){U=u;localStorage.setItem('am_ses',JSON.stringify({u:u,ts:Date.now()}));document.getElementById('login').classList.add('oculto');document.getElementById('app').style.display='';renderPant('Inicio');}else{document.getElementById('lErr').style.display='block';_pin='';document.getElementById('pinDisplay').textContent='—';}};
 let _pin = '';
 const _u = {'1234':{nombre:'Alejandro Ibáñez Morales',rol:'admin'},'3377':{nombre:'Monitoreador',rol:'operario'}};
 
