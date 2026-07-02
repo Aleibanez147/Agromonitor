@@ -7,6 +7,21 @@
 <meta name="theme-color" content="#1a3a1a">
 <title>AgroMonitor</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyD5K1Aaw0v5a6fhYmEmjEGByebvXLUad7o",
+  authDomain: "agromonitor-e2097.firebaseapp.com",
+  projectId: "agromonitor-e2097",
+  storageBucket: "agromonitor-e2097.firebasestorage.app",
+  messagingSenderId: "41620431429",
+  appId: "1:41620431429:web:af9e6a547d86d78cdbb92c"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+</script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 :root{--vd:#1a3a1a;--vm:#2d6a2d;--vc:#4a9c4a;--vs:#e8f5e8;--vb:#c5e0c5;--am:#d4820a;--as2:#fef3e2;--ro:#c0392b;--rs:#fdecea;--gm:#6b6b6b;--gc:#f4f4f2;--gb:#e0e0dc;--bl:#ffffff;--tp:#1a1a1a;--ts:#555;--r:12px;--rg:20px;--ff:'Segoe UI',system-ui,sans-serif}
@@ -428,9 +443,44 @@ const CAT = [
 // ═══════════════════════════════════════
 const DB = {
   get: k => { try { return JSON.parse(localStorage.getItem('am_'+k)) || [] } catch { return [] } },
-  set: (k,v) => localStorage.setItem('am_'+k, JSON.stringify(v)),
+  set: (k,v) => {
+    localStorage.setItem('am_'+k, JSON.stringify(v));
+    // Sincronizar con Firebase en background
+    try {
+      db.collection('agromonitor').doc(k).set({ data: JSON.stringify(v), ts: Date.now() })
+        .catch(e => console.log('Firebase sync error:', e));
+    } catch(e) {}
+  },
   id: () => Date.now().toString(36)+Math.random().toString(36).slice(2,5)
 };
+
+// Sincronizar desde Firebase al iniciar
+async function sincronizarDesdeFirebase() {
+  try {
+    const colecciones = ['clientes','campos','lotes','sesiones','panadas','cultivos_ex'];
+    for (const col of colecciones) {
+      const doc = await db.collection('agromonitor').doc(col).get();
+      if (doc.exists) {
+        const remoto = JSON.parse(doc.data().data || '[]');
+        const local = DB.get(col);
+        // Merge: combinar datos remotos y locales sin duplicados
+        const merged = [...remoto];
+        local.forEach(item => {
+          if (!merged.find(r => r.id === item.id)) merged.push(item);
+        });
+        localStorage.setItem('am_'+col, JSON.stringify(merged));
+        // Subir merge a Firebase
+        db.collection('agromonitor').doc(col).set({ data: JSON.stringify(merged), ts: Date.now() });
+      } else if (DB.get(col).length > 0) {
+        // Subir datos locales a Firebase
+        db.collection('agromonitor').doc(col).set({ data: JSON.stringify(DB.get(col)), ts: Date.now() });
+      }
+    }
+    console.log('Sincronización completada');
+  } catch(e) {
+    console.log('Sin conexión - trabajando offline:', e.message);
+  }
+}
 
 const USUARIOS = {
   '1234': { nombre:'Alejandro Ibáñez Morales', rol:'admin' },
@@ -504,6 +554,10 @@ function logout() {
 }
 
 function iniciarApp() {
+  // Sincronizar con Firebase
+  sincronizarDesdeFirebase().then(() => {
+    if (U) renderPant(S.pant || 'Inicio');
+  });
   const d = localStorage.getItem('am_ses');
   if (d) {
     try {
@@ -1140,7 +1194,22 @@ function abrirInformePDF() {
   w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">');
   w.document.write('<meta name="viewport" content="width=device-width,initial-scale=1">');
   w.document.write('<title>Informe AgroMonitor</title>');
-  w.document.write('<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>');
+  w.document.write('<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyD5K1Aaw0v5a6fhYmEmjEGByebvXLUad7o",
+  authDomain: "agromonitor-e2097.firebaseapp.com",
+  projectId: "agromonitor-e2097",
+  storageBucket: "agromonitor-e2097.firebasestorage.app",
+  messagingSenderId: "41620431429",
+  appId: "1:41620431429:web:af9e6a547d86d78cdbb92c"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+</script>');
   w.document.write('<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>');
   w.document.write('<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:sans-serif;background:#f5f5f3}.page{max-width:800px;margin:0 auto;background:white}@media print{.no-print{display:none}}');
   w.document.write('.hdr{background:#1a3a1a;color:white;padding:24px 28px}.hdr-t{font-size:22px;font-weight:700;margin-bottom:4px}.hdr-s{font-size:13px;opacity:.75}');
