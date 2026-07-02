@@ -7,6 +7,31 @@
 <meta name="theme-color" content="#1a3a1a">
 <title>AgroMonitor</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<!-- Login functions - cargadas primero para que los botones funcionen -->
+<script>
+var _pin = '';
+var _u = {'1234':{nombre:'Alejandro Ibáñez Morales',rol:'admin'},'3377':{nombre:'Monitoreador',rol:'operario'}};
+function pP(n){if(_pin.length>=6)return;_pin+=String(n);var d=document.getElementById('pinDisplay');if(d)d.textContent='●'.repeat(_pin.length);}
+function pB(){_pin=_pin.slice(0,-1);var d=document.getElementById('pinDisplay');if(d)d.textContent=_pin.length?'●'.repeat(_pin.length):'—';}
+function pOK(){
+  var u=_u[_pin];
+  if(u){
+    try{localStorage.setItem('am_ses',JSON.stringify({u:u,ts:Date.now()}));}catch(e){}
+    var login=document.getElementById('login');
+    var app=document.getElementById('app');
+    if(login)login.classList.add('oculto');
+    if(app)app.style.display='';
+    if(typeof renderPant==='function')renderPant('Inicio');
+    else setTimeout(function(){if(typeof renderPant==='function')renderPant('Inicio');},500);
+  }else{
+    var err=document.getElementById('lErr');
+    if(err)err.style.display='block';
+    _pin='';
+    var d=document.getElementById('pinDisplay');
+    if(d)d.textContent='—';
+  }
+}
+</script>
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -506,11 +531,8 @@ actualizarOffline();
 // ═══════════════════════════════════════
 // LOGIN
 // ═══════════════════════════════════════
-window.pP=function(n){if(_pin.length>=6)return;_pin+=n;document.getElementById('pinDisplay').textContent='●'.repeat(_pin.length);};
-window.pB=function(){_pin=_pin.slice(0,-1);document.getElementById('pinDisplay').textContent=_pin.length?'●'.repeat(_pin.length):'—';};
-window.pOK=function(){var u=_u[_pin];if(u){U=u;localStorage.setItem('am_ses',JSON.stringify({u:u,ts:Date.now()}));document.getElementById('login').classList.add('oculto');document.getElementById('app').style.display='';renderPant('Inicio');}else{document.getElementById('lErr').style.display='block';_pin='';document.getElementById('pinDisplay').textContent='—';}};
-let _pin = '';
-const _u = {'1234':{nombre:'Alejandro Ibáñez Morales',rol:'admin'},'3377':{nombre:'Monitoreador',rol:'operario'}};
+// Login functions defined in HEAD script
+let _pin = _pin || '';
 
 function pP(n) {
   if (_pin.length >= 6) return;
@@ -1194,7 +1216,27 @@ function abrirInformePDF() {
   w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">');
   w.document.write('<meta name="viewport" content="width=device-width,initial-scale=1">');
   w.document.write('<title>Informe AgroMonitor</title>');
-  w.document.write('<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  w.document.write('<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>');if(d)d.textContent='●'.repeat(_pin.length);}
+function pB(){_pin=_pin.slice(0,-1);var d=document.getElementById('pinDisplay');if(d)d.textContent=_pin.length?'●'.repeat(_pin.length):'—';}
+function pOK(){
+  var u=_u[_pin];
+  if(u){
+    try{localStorage.setItem('am_ses',JSON.stringify({u:u,ts:Date.now()}));}catch(e){}
+    var login=document.getElementById('login');
+    var app=document.getElementById('app');
+    if(login)login.classList.add('oculto');
+    if(app)app.style.display='';
+    if(typeof renderPant==='function')renderPant('Inicio');
+    else setTimeout(function(){if(typeof renderPant==='function')renderPant('Inicio');},500);
+  }else{
+    var err=document.getElementById('lErr');
+    if(err)err.style.display='block';
+    _pin='';
+    var d=document.getElementById('pinDisplay');
+    if(d)d.textContent='—';
+  }
+}
+</script>
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
