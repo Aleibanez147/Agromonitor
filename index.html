@@ -876,7 +876,7 @@ function abrirInformeCompleto() {
     +'<button class="btn-pdf no-print" onclick="window.print()">🖨️ Guardar como PDF</button>'
     +'<script>'
     +(conGPS.length?'var map=L.map("mapa",{zoomControl:true,attributionControl:false}).setView(['+latC+','+lonC+'],'+zoom+');'
-    +'L.tileLayer("https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}",{subdomains:["mt0","mt1","mt2","mt3"],maxZoom:20}).addTo(map);'
+    +'L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);'
     +markers+fitBounds
     +'setTimeout(function(){map.invalidateSize();},300);':'')
     +'<\/script></body></html>';
