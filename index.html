@@ -788,7 +788,6 @@ function abrirInformeCompleto() {
   var cult = getCult(ses.cultId);
   var pans = DB.get('panadas').filter(function(p){return p.sesId===sid;});
 
-  // Calcular resultados
   var orgM={};
   pans.forEach(function(p){(p.obs||[]).forEach(function(o){
     if(!orgM[o.id])orgM[o.id]=Object.assign({},o,{vals:[],pres:[],incs:[],sevs:[]});
@@ -812,81 +811,111 @@ function abrirInformeCompleto() {
     filas+='<td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:14px">'+res+'</td></tr>';
   });
 
+  // Detalle por pañada incluyendo notas
+  var filasGPS=pans.map(function(p,i){
+    var obsTexto=(p.obs||[]).map(function(o){
+      if(o.tipo==='presencia')return o.val?o.nombre+': Presente':o.nombre+': Ausente';
+      if(o.tipo==='conteo')return o.nombre+': '+o.val+(o.u?' '+o.u:'');
+      if(o.tipo==='inci')return o.nombre+': Inc.'+o.inc+'% Sev.'+o.sev+'%';
+      return '';
+    }).filter(Boolean).join(' / ')||'Sin hallazgos';
+    return '<tr>'
+      +'<td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;white-space:nowrap">Pañada #'+(i+1)+'</td>'
+      +'<td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;white-space:nowrap">'+fH(p.fecha)+'</td>'
+      +'<td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;color:#666">'+(p.lat?p.lat.toFixed(5)+', '+p.lon.toFixed(5):'Sin GPS')+'</td>'
+      +'<td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px">'+obsTexto+'</td>'
+      +(p.notas?'<td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;color:#555;font-style:italic">'+p.notas+'</td>':'<td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;color:#aaa">—</td>')
+      +'</tr>';
+  }).join('');
+
   var conGPS=pans.filter(function(p){return p.lat&&p.lon;});
   var latC=conGPS.length?conGPS.reduce(function(a,p){return a+p.lat;},0)/conGPS.length:-27.9;
   var lonC=conGPS.length?conGPS.reduce(function(a,p){return a+p.lon;},0)/conGPS.length:-62.26;
-  var zoom=conGPS.length?15:12;
+  var zoom=conGPS.length>=2?14:15;
 
-  var markers='';
-  conGPS.forEach(function(p,i){
-    markers+='L.circleMarker(['+p.lat+','+p.lon+'],{radius:16,color:"#fff",fillColor:"#1a3a1a",fillOpacity:1,weight:3}).addTo(map).bindPopup("Panada '+(i+1)+'");';
-    markers+='L.marker(['+p.lat+','+p.lon+'],{icon:L.divIcon({html:"<div style=\"font-size:13px;font-weight:700;color:white;text-align:center;line-height:32px\">'+(i+1)+'</div>",iconSize:[32,32],iconAnchor:[16,16],className:""})}).addTo(map);';
-  });
+  // Generar código JS del mapa
+  var mapaJS='';
+  if(conGPS.length>0){
+    mapaJS+='var map=L.map("mapa").setView(['+latC+','+lonC+'],'+zoom+');';
+    mapaJS+='L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map);';
+    conGPS.forEach(function(p,i){
+      mapaJS+='L.circleMarker(['+p.lat+','+p.lon+'],{radius:14,color:"#1a3a1a",fillColor:"#1a3a1a",fillOpacity:0.9,weight:2}).addTo(map).bindPopup("Panada '+(i+1)+(p.notas?' - '+p.notas:'')+' ('+fH(p.fecha)+')");';
 
-  var fitBounds='';
-  if(conGPS.length>1){
-    fitBounds='map.fitBounds(['+conGPS.map(function(p){return'['+p.lat+','+p.lon+']';}).join(',')+'],{padding:[40,40]});';
+    });
+    if(conGPS.length>1){
+      mapaJS+='map.fitBounds(['+conGPS.map(function(p){return'['+p.lat+','+p.lon+']';}).join(',')+'],{padding:[30,30]});';
+    }
   }
 
-  var filasGPS=pans.map(function(p,i){
-    return '<tr><td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">Pañada #'+(i+1)+'</td><td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">'+fH(p.fecha)+'</td><td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:12px;color:#666">'+(p.lat?p.lat.toFixed(5)+', '+p.lon.toFixed(5):'Sin GPS')+'</td></tr>';
-  }).join('');
-
-  var html='<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Informe AgroMonitor</title>'
+  var html='<!DOCTYPE html><html lang="es"><head>'
+    +'<meta charset="UTF-8">'
+    +'<meta name="viewport" content="width=device-width,initial-scale=1">'
+    +'<title>Informe AgroMonitor - '+fF(ses.fecha)+'</title>'
     +'<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>'
     +'<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>'
-    +'<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:sans-serif;background:#f5f5f3}'
-    +'.page{max-width:800px;margin:0 auto;background:white}'
-    +'@media print{.no-print{display:none!important}body{background:white}.page{max-width:100%}#mapa{height:400px!important}}'
-    +'.hdr{background:#1a3a1a;color:white;padding:20px 24px}'
-    +'.hdr-t{font-size:20px;font-weight:700;margin-bottom:4px}'
+    +'<style>'
+    +'*{box-sizing:border-box;margin:0;padding:0}body{font-family:sans-serif;background:#f5f5f3;color:#1a1a1a}'
+    +'.page{max-width:900px;margin:0 auto;background:white;min-height:100vh}'
+    +'@media print{.no-print{display:none!important}body,html{background:white}.page{max-width:100%;box-shadow:none}#mapa{height:380px!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}'
+    +'.hdr{background:#1a3a1a;color:white;padding:20px 28px}'
+    +'.hdr-top{display:flex;align-items:center;gap:12px;margin-bottom:8px}'
+    +'.hdr-icon{width:40px;height:40px;background:#4a9c4a;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px}'
+    +'.hdr-t{font-size:20px;font-weight:700}'
     +'.hdr-s{font-size:13px;opacity:.75}'
     +'.grid{display:grid;grid-template-columns:1fr 1fr;border-bottom:2px solid #1a3a1a}'
-    +'.dato{padding:12px 20px;border-right:1px solid #e8e8e4;border-bottom:1px solid #e8e8e4}'
+    +'.dato{padding:12px 20px;border-right:1px solid #eee;border-bottom:1px solid #eee}'
     +'.dato:nth-child(even){border-right:none}'
-    +'.dl{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:2px}'
-    +'.dv{font-size:14px;font-weight:600}'
-    +'.sec{padding:16px 24px;border-bottom:1px solid #e8e8e4}'
-    +'.sec-t{font-size:12px;font-weight:700;color:#1a3a1a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}'
-    +'#mapa{height:350px;border-radius:8px;border:1px solid #ddd}'
+    +'.dl{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:3px}'
+    +'.dv{font-size:15px;font-weight:600}'
+    +'.sec{padding:18px 24px;border-bottom:1px solid #eee}'
+    +'.sec-t{font-size:12px;font-weight:700;color:#1a3a1a;text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px}'
+    +'#mapa{height:380px;border-radius:8px;border:1px solid #ddd;background:#e8f0e8}'
+    +'.mapa-legend{display:flex;gap:16px;margin-top:8px;font-size:12px;color:#666;flex-wrap:wrap}'
+    +'.legend-item{display:flex;align-items:center;gap:6px}'
+    +'.legend-dot{width:20px;height:20px;background:#1a3a1a;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700}'
     +'table{width:100%;border-collapse:collapse}'
-    +'th{background:#f5f5f3;padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#666;text-transform:uppercase;border-bottom:2px solid #ddd}'
-    +'.ftr{background:#f5f5f3;padding:14px 24px;display:flex;justify-content:space-between;font-size:12px;color:#888}'
-    +'.btn-pdf{position:fixed;bottom:20px;right:20px;background:#1a3a1a;color:white;border:none;border-radius:12px;padding:14px 20px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.2)}'
+    +'th{background:#f5f5f3;padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:#666;text-transform:uppercase;border-bottom:2px solid #ddd}'
+    +'.sin-datos{padding:16px;color:#888;font-size:14px;font-style:italic}'
+    +'.ftr{background:#f5f5f3;padding:14px 24px;display:flex;justify-content:space-between;font-size:12px;color:#888;border-top:1px solid #eee}'
+    +'.btn-pdf{position:fixed;bottom:24px;right:24px;background:#1a3a1a;color:white;border:none;border-radius:12px;padding:14px 22px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.25);display:flex;align-items:center;gap:8px}'
     +'</style></head><body>'
     +'<div class="page">'
-    +'<div class="hdr"><div class="hdr-t">🌱 Informe de Monitoreo — AgroMonitor</div><div class="hdr-s">'+fF(ses.fecha)+' · '+pans.length+' pañada'+(pans.length!==1?'s':'')+'</div></div>'
+    +'<div class="hdr"><div class="hdr-top"><div class="hdr-icon">🌱</div><div><div class="hdr-t">Informe de Monitoreo</div></div></div>'
+    +'<div class="hdr-s">AgroMonitor · '+fF(ses.fecha)+' · '+pans.length+' pañada'+(pans.length!==1?'s':'')+'</div></div>'
     +'<div class="grid">'
     +'<div class="dato"><div class="dl">Cliente</div><div class="dv">'+(cli?cli.nombre:'-')+'</div></div>'
     +'<div class="dato"><div class="dl">Campo</div><div class="dv">'+(cam?cam.nombre:'-')+'</div></div>'
     +'<div class="dato"><div class="dl">Lote</div><div class="dv">'+(lot?lot.nombre:'-')+(lot&&lot.ha?' ('+lot.ha+' ha)':'')+'</div></div>'
     +'<div class="dato"><div class="dl">Cultivo</div><div class="dv">'+(cult?cult.nombre:'-')+'</div></div>'
     +'<div class="dato"><div class="dl">Fecha</div><div class="dv">'+fF(ses.fecha)+'</div></div>'
-    +'<div class="dato"><div class="dl">Pañadas</div><div class="dv">'+pans.length+'</div></div>'
+    +'<div class="dato"><div class="dl">Pañadas realizadas</div><div class="dv">'+pans.length+'</div></div>'
     +'</div>'
-    +'<div class="sec"><div class="sec-t">📍 Mapa de pañadas — imagen satelital</div>'
-    +(conGPS.length?'<div id="mapa"></div><p style="font-size:12px;color:#888;margin-top:8px">Los números indican el orden en que se realizaron las pañadas</p>':'<p style="color:#888;font-size:14px;padding:20px 0">Sin datos GPS registrados</p>')
+    // MAPA
+    +'<div class="sec"><div class="sec-t">📍 Mapa satelital de pañadas</div>'
+    +(conGPS.length
+      ?'<div id="mapa"></div><div class="mapa-legend">'+conGPS.map(function(p,i){return'<div class="legend-item"><div class="legend-dot">'+(i+1)+'</div><span>Pañada #'+(i+1)+' · '+fH(p.fecha)+'</span></div>';}).join('')+'</div>'
+      :'<p class="sin-datos">Sin coordenadas GPS en este monitoreo</p>')
     +'</div>'
+    // RESULTADOS
     +'<div class="sec"><div class="sec-t">🔬 Resultados del monitoreo</div>'
-    +(filas?'<table><thead><tr><th>Organismo</th><th>Tipo</th><th>Resultado</th></tr></thead><tbody>'+filas+'</tbody></table>':'<p style="color:#888;font-size:14px;padding:10px 0">Sin hallazgos registrados</p>')
+    +(filas?'<table><thead><tr><th>Organismo</th><th>Tipo</th><th>Resultado (promedio de pañadas)</th></tr></thead><tbody>'+filas+'</tbody></table>':'<p class="sin-datos">Sin hallazgos registrados en este monitoreo</p>')
     +'</div>'
-    +'<div class="sec"><div class="sec-t">📡 GPS por pañada</div><table><thead><tr><th>Pañada</th><th>Hora</th><th>Coordenadas</th></tr></thead><tbody>'+filasGPS+'</tbody></table></div>'
-    +'<div class="ftr"><span>Generado con AgroMonitor</span><span>'+new Date().toLocaleString('es-AR')+'</span></div>'
+    // DETALLE POR PAÑADA
+    +'<div class="sec"><div class="sec-t">📋 Detalle por pañada</div>'
+    +'<table><thead><tr><th>#</th><th>Hora</th><th>GPS</th><th>Hallazgos</th><th>Observaciones</th></tr></thead><tbody>'+filasGPS+'</tbody></table>'
+    +'</div>'
+    +'<div class="ftr"><span>Generado con AgroMonitor · Bandera, Santiago del Estero</span><span>'+new Date().toLocaleString('es-AR')+'</span></div>'
     +'</div>'
     +'<button class="btn-pdf no-print" onclick="window.print()">🖨️ Guardar como PDF</button>'
-    +'<script>'
-    +(conGPS.length?'var map=L.map("mapa",{zoomControl:true,attributionControl:false}).setView(['+latC+','+lonC+'],'+zoom+');'
-    +'L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);'
-    +markers+fitBounds
-    +'setTimeout(function(){map.invalidateSize();},300);':'')
-    +'<\/script></body></html>';
+    +(conGPS.length?'<script>window.onload=function(){'+mapaJS+'}<\/script>':'')
+    +'</body></html>';
 
   var w=window.open('','_blank');
   if(w){w.document.write(html);w.document.close();}
-  else{alert('Bloqueaste las ventanas emergentes. Permitilas para ver el informe con mapa.');}
+  else{alert('Permitir ventanas emergentes para ver el informe con mapa.');}
 }
 
-// ═══ WHATSAPP ═══
+// ═══ WHATSAPP ═══// ═══ WHATSAPP ═══
 function enviarWA(){
   var sid=S.sesId; var ses=DB.get('sesiones').find(function(s){return s.id===sid;});if(!ses)return;
   var lot=DB.get('lotes').find(function(l){return l.id===ses.lotId;}); var cam=DB.get('campos').find(function(f){return f.id===(lot&&lot.camId);}); var cli=DB.get('clientes').find(function(c){return c.id===(cam&&cam.cliId);}); var cult=getCult(ses.cultId); var pans=DB.get('panadas').filter(function(p){return p.sesId===sid;});
