@@ -244,12 +244,9 @@ body{font-family:var(--ff);background:var(--gc);color:var(--tp);min-height:100vh
 
 <div class="pant" id="pInforme">
   <div id="contInforme"></div>
-  <div class="inf-s">
-    <div class="inf-sh">🗺️ Mapa de pañadas</div>
-    <div id="mapaInforme" style="height:300px;width:100%;background:#e8f0e8"></div>
-    <div style="padding:8px 16px;font-size:12px;color:var(--gm)">📍 Puntos numerados = orden de cada pañada</div>
-  </div>
-  <button class="btn bp" onclick="enviarWA()">📲 Enviar por WhatsApp</button>
+
+  <button class="btn bp" onclick="abrirInformeCompleto()">🗺️ Ver informe con mapa</button>
+  <button class="btn bs" onclick="enviarWA()">📲 Enviar resumen por WhatsApp</button>
   <button class="btn bs" onclick="irInicio()">🏠 Volver al inicio</button>
   <div class="esp"></div>
 </div>
@@ -631,56 +628,6 @@ setTimeout(function(){ initMapaInforme(pans); }, 300);
 setTimeout(function(){ initMapaInforme(pans); }, 800);
 }
 
-function initMapaInforme(pans){
-  var el=document.getElementById('mapaInforme');
-  if(!el)return;
-  var conGPS=pans.filter(function(p){ return p.lat&&p.lon; });
-  if(!conGPS.length){
-    el.innerHTML='<div style="height:300px;display:flex;align-items:center;justify-content:center;color:var(--gm);font-size:14px;background:var(--gc);flex-direction:column;gap:8px"><span style="font-size:36px">📍</span><span>Sin datos GPS en este monitoreo</span></div>';
-    return;
-  }
-  // Destruir mapa anterior si existe
-  if(window._mapaInf){
-    try{window._mapaInf.remove();}catch(e){}
-    window._mapaInf=null;
-  }
-  // Limpiar el div completamente
-  el.innerHTML='';
-  el.style.height='300px';
-  
-  var latC=conGPS.reduce(function(a,p){return a+p.lat;},0)/conGPS.length;
-  var lonC=conGPS.reduce(function(a,p){return a+p.lon;},0)/conGPS.length;
-  
-  try {
-    var m=L.map(el,{zoomControl:true,attributionControl:false});
-    m.setView([latC,lonC],15);
-    window._mapaInf=m;
-    
-    L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{
-      subdomains:['mt0','mt1','mt2','mt3'],maxZoom:20
-    }).addTo(m);
-    
-    conGPS.forEach(function(p,i){
-      var html='<div style="background:#1a3a1a;color:white;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4)">'+(i+1)+'</div>';
-      var icon=L.divIcon({html:html,iconSize:[30,30],iconAnchor:[15,15],className:''});
-      L.marker([p.lat,p.lon],{icon:icon}).addTo(m).bindPopup('<b>Pañada #'+(i+1)+'</b><br>'+fH(p.fecha)+(p.notas?'<br>'+p.notas:''));
-    });
-    
-    if(conGPS.length>1){
-      var bounds=L.latLngBounds(conGPS.map(function(p){return[p.lat,p.lon];}));
-      m.fitBounds(bounds,{padding:[40,40]});
-    }
-    
-    // Múltiples intentos de invalidateSize para asegurar que renderice
-    setTimeout(function(){m.invalidateSize();},100);
-    setTimeout(function(){m.invalidateSize();},500);
-    setTimeout(function(){m.invalidateSize();},1000);
-  } catch(e) {
-    console.log('Error mapa informe:', e);
-    el.innerHTML='<div style="height:300px;display:flex;align-items:center;justify-content:center;color:var(--gm);font-size:14px;background:var(--gc)">Error al cargar el mapa</div>';
-  }
-}
-
 function renderHistorial(){
   var ses=DB.get('sesiones').filter(function(s){return s.est==='cerrada';}).reverse();
   var el=document.getElementById('listaHist');
@@ -831,6 +778,114 @@ function guardarCampo(){ var n=document.getElementById('iNomCam').value.trim();i
 function guardarCultivoExtra(){ var n=document.getElementById('iNomCult').value.trim();if(!n){alert('Ingresá un nombre');return;} var arr=DB.get('cultivos_ex');arr.push({id:'cx_'+DB.id(),nombre:n,fecha:Date.now()});DB.set('cultivos_ex',arr);cerrarM('mCultivo');renderConfig(); }
 function borrarCultEx(id){ if(!confirm('¿Eliminar?'))return;DB.set('cultivos_ex',DB.get('cultivos_ex').filter(function(c){return c.id!==id;}));renderConfig(); }
 
+// ═══ INFORME COMPLETO CON MAPA ═══
+function abrirInformeCompleto() {
+  var sid = S.sesId;
+  var ses = DB.get('sesiones').find(function(s){return s.id===sid;}); if(!ses)return;
+  var lot = DB.get('lotes').find(function(l){return l.id===ses.lotId;});
+  var cam = DB.get('campos').find(function(f){return f.id===(lot&&lot.camId);});
+  var cli = DB.get('clientes').find(function(c){return c.id===(cam&&cam.cliId);});
+  var cult = getCult(ses.cultId);
+  var pans = DB.get('panadas').filter(function(p){return p.sesId===sid;});
+
+  // Calcular resultados
+  var orgM={};
+  pans.forEach(function(p){(p.obs||[]).forEach(function(o){
+    if(!orgM[o.id])orgM[o.id]=Object.assign({},o,{vals:[],pres:[],incs:[],sevs:[]});
+    if(o.tipo==='conteo')orgM[o.id].vals.push(o.val||0);
+    else if(o.tipo==='presencia')orgM[o.id].pres.push(o.val);
+    else if(o.tipo==='inci'){if(o.inc!==undefined)orgM[o.id].incs.push(o.inc);if(o.sev!==undefined)orgM[o.id].sevs.push(o.sev);}
+  });});
+
+  function prom(a){return a.length?(a.reduce(function(x,y){return x+y;},0)/a.length).toFixed(1):'-';}
+  function presP(a){return a.length?Math.round(a.filter(Boolean).length/a.length*100):0;}
+
+  var filas='';
+  Object.values(orgM).forEach(function(o){
+    var res='';
+    if(o.tipo==='conteo')res='Promedio: <strong>'+prom(o.vals)+'</strong> '+(o.u||'u')+'/pañada';
+    else if(o.tipo==='presencia')res='Presente en <strong>'+presP(o.pres)+'%</strong> de pañadas';
+    else if(o.tipo==='inci')res='Incidencia: <strong>'+prom(o.incs)+'%</strong> · Severidad: <strong>'+prom(o.sevs)+'%</strong>';
+    var color=o.tipo==='inci'?'#d4820a':'#c0392b';
+    filas+='<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:14px">'+o.nombre+'</td>';
+    filas+='<td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;color:'+color+';font-weight:600">'+(o.tipo==='inci'?'Enfermedad':'Plaga')+'</td>';
+    filas+='<td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:14px">'+res+'</td></tr>';
+  });
+
+  var conGPS=pans.filter(function(p){return p.lat&&p.lon;});
+  var latC=conGPS.length?conGPS.reduce(function(a,p){return a+p.lat;},0)/conGPS.length:-27.9;
+  var lonC=conGPS.length?conGPS.reduce(function(a,p){return a+p.lon;},0)/conGPS.length:-62.26;
+  var zoom=conGPS.length?15:12;
+
+  var markers='';
+  conGPS.forEach(function(p,i){
+    markers+='L.circleMarker(['+p.lat+','+p.lon+'],{radius:16,color:"#fff",fillColor:"#1a3a1a",fillOpacity:1,weight:3}).addTo(map).bindPopup("Panada '+(i+1)+'");';
+    markers+='L.marker(['+p.lat+','+p.lon+'],{icon:L.divIcon({html:"<div style=\"font-size:13px;font-weight:700;color:white;text-align:center;line-height:32px\">'+(i+1)+'</div>",iconSize:[32,32],iconAnchor:[16,16],className:""})}).addTo(map);';
+  });
+
+  var fitBounds='';
+  if(conGPS.length>1){
+    fitBounds='map.fitBounds(['+conGPS.map(function(p){return'['+p.lat+','+p.lon+']';}).join(',')+'],{padding:[40,40]});';
+  }
+
+  var filasGPS=pans.map(function(p,i){
+    return '<tr><td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">Pañada #'+(i+1)+'</td><td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">'+fH(p.fecha)+'</td><td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:12px;color:#666">'+(p.lat?p.lat.toFixed(5)+', '+p.lon.toFixed(5):'Sin GPS')+'</td></tr>';
+  }).join('');
+
+  var html='<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Informe AgroMonitor</title>'
+    +'<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>'
+    +'<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>'
+    +'<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:sans-serif;background:#f5f5f3}'
+    +'.page{max-width:800px;margin:0 auto;background:white}'
+    +'@media print{.no-print{display:none!important}body{background:white}.page{max-width:100%}#mapa{height:400px!important}}'
+    +'.hdr{background:#1a3a1a;color:white;padding:20px 24px}'
+    +'.hdr-t{font-size:20px;font-weight:700;margin-bottom:4px}'
+    +'.hdr-s{font-size:13px;opacity:.75}'
+    +'.grid{display:grid;grid-template-columns:1fr 1fr;border-bottom:2px solid #1a3a1a}'
+    +'.dato{padding:12px 20px;border-right:1px solid #e8e8e4;border-bottom:1px solid #e8e8e4}'
+    +'.dato:nth-child(even){border-right:none}'
+    +'.dl{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:2px}'
+    +'.dv{font-size:14px;font-weight:600}'
+    +'.sec{padding:16px 24px;border-bottom:1px solid #e8e8e4}'
+    +'.sec-t{font-size:12px;font-weight:700;color:#1a3a1a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}'
+    +'#mapa{height:350px;border-radius:8px;border:1px solid #ddd}'
+    +'table{width:100%;border-collapse:collapse}'
+    +'th{background:#f5f5f3;padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#666;text-transform:uppercase;border-bottom:2px solid #ddd}'
+    +'.ftr{background:#f5f5f3;padding:14px 24px;display:flex;justify-content:space-between;font-size:12px;color:#888}'
+    +'.btn-pdf{position:fixed;bottom:20px;right:20px;background:#1a3a1a;color:white;border:none;border-radius:12px;padding:14px 20px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.2)}'
+    +'</style></head><body>'
+    +'<div class="page">'
+    +'<div class="hdr"><div class="hdr-t">🌱 Informe de Monitoreo — AgroMonitor</div><div class="hdr-s">'+fF(ses.fecha)+' · '+pans.length+' pañada'+(pans.length!==1?'s':'')+'</div></div>'
+    +'<div class="grid">'
+    +'<div class="dato"><div class="dl">Cliente</div><div class="dv">'+(cli?cli.nombre:'-')+'</div></div>'
+    +'<div class="dato"><div class="dl">Campo</div><div class="dv">'+(cam?cam.nombre:'-')+'</div></div>'
+    +'<div class="dato"><div class="dl">Lote</div><div class="dv">'+(lot?lot.nombre:'-')+(lot&&lot.ha?' ('+lot.ha+' ha)':'')+'</div></div>'
+    +'<div class="dato"><div class="dl">Cultivo</div><div class="dv">'+(cult?cult.nombre:'-')+'</div></div>'
+    +'<div class="dato"><div class="dl">Fecha</div><div class="dv">'+fF(ses.fecha)+'</div></div>'
+    +'<div class="dato"><div class="dl">Pañadas</div><div class="dv">'+pans.length+'</div></div>'
+    +'</div>'
+    +'<div class="sec"><div class="sec-t">📍 Mapa de pañadas — imagen satelital</div>'
+    +(conGPS.length?'<div id="mapa"></div><p style="font-size:12px;color:#888;margin-top:8px">Los números indican el orden en que se realizaron las pañadas</p>':'<p style="color:#888;font-size:14px;padding:20px 0">Sin datos GPS registrados</p>')
+    +'</div>'
+    +'<div class="sec"><div class="sec-t">🔬 Resultados del monitoreo</div>'
+    +(filas?'<table><thead><tr><th>Organismo</th><th>Tipo</th><th>Resultado</th></tr></thead><tbody>'+filas+'</tbody></table>':'<p style="color:#888;font-size:14px;padding:10px 0">Sin hallazgos registrados</p>')
+    +'</div>'
+    +'<div class="sec"><div class="sec-t">📡 GPS por pañada</div><table><thead><tr><th>Pañada</th><th>Hora</th><th>Coordenadas</th></tr></thead><tbody>'+filasGPS+'</tbody></table></div>'
+    +'<div class="ftr"><span>Generado con AgroMonitor</span><span>'+new Date().toLocaleString('es-AR')+'</span></div>'
+    +'</div>'
+    +'<button class="btn-pdf no-print" onclick="window.print()">🖨️ Guardar como PDF</button>'
+    +'<script>'
+    +(conGPS.length?'var map=L.map("mapa",{zoomControl:true,attributionControl:false}).setView(['+latC+','+lonC+'],'+zoom+');'
+    +'L.tileLayer("https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}",{subdomains:["mt0","mt1","mt2","mt3"],maxZoom:20}).addTo(map);'
+    +markers+fitBounds
+    +'setTimeout(function(){map.invalidateSize();},300);':'')
+    +'<\/script></body></html>';
+
+  var w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();}
+  else{alert('Bloqueaste las ventanas emergentes. Permitilas para ver el informe con mapa.');}
+}
+
 // ═══ WHATSAPP ═══
 function enviarWA(){
   var sid=S.sesId; var ses=DB.get('sesiones').find(function(s){return s.id===sid;});if(!ses)return;
@@ -848,6 +903,3 @@ iniciarApp();
 </script>
 </body>
 </html>
-
-
-
