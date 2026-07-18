@@ -245,8 +245,7 @@ body{font-family:var(--ff);background:var(--gc);color:var(--tp);min-height:100vh
 <div class="pant" id="pInforme">
   <div id="contInforme"></div>
 
-  <button class="btn bp" onclick="abrirInformeCompleto()">🗺️ Ver informe con mapa</button>
-  <button class="btn bs" onclick="enviarWA()">📲 Enviar resumen por WhatsApp</button>
+  <button class="btn bp" onclick="enviarWA()">📲 Enviar por WhatsApp</button>
   <button class="btn bs" onclick="irInicio()">🏠 Volver al inicio</button>
   <div class="esp"></div>
 </div>
@@ -913,6 +912,28 @@ function abrirInformeCompleto() {
   var w=window.open('','_blank');
   if(w){w.document.write(html);w.document.close();}
   else{alert('Permitir ventanas emergentes para ver el informe con mapa.');}
+}
+
+// ═══ MAPA INFORME ═══
+function initMapaInforme(pans) {
+  var el=document.getElementById('mapaInforme');
+  if(!el)return;
+  var conGPS=pans.filter(function(p){return p.lat&&p.lon;});
+  if(!conGPS.length)return;
+  if(window._mapaInf){try{window._mapaInf.remove();}catch(e){}window._mapaInf=null;}
+  el.innerHTML='';
+  var latC=conGPS.reduce(function(a,p){return a+p.lat;},0)/conGPS.length;
+  var lonC=conGPS.reduce(function(a,p){return a+p.lon;},0)/conGPS.length;
+  var m=L.map(el,{zoomControl:true,attributionControl:false});
+  m.setView([latC,lonC],15);
+  window._mapaInf=m;
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(m);
+  conGPS.forEach(function(p,i){
+    var icon=L.divIcon({html:'<div style="background:#1a3a1a;color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,.4)">'+(i+1)+'</div>',iconSize:[28,28],iconAnchor:[14,14],className:''});
+    L.marker([p.lat,p.lon],{icon:icon}).addTo(m).bindPopup('<b>Pañada #'+(i+1)+'</b><br>'+fH(p.fecha)+(p.notas?'<br><i>'+p.notas+'</i>':''));
+  });
+  if(conGPS.length>1){m.fitBounds(conGPS.map(function(p){return[p.lat,p.lon];}),{padding:[30,30]});}
+  setTimeout(function(){m.invalidateSize();},300);
 }
 
 // ═══ WHATSAPP ═══// ═══ WHATSAPP ═══
