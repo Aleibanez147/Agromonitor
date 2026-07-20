@@ -621,7 +621,20 @@ function renderInforme(sidOpc){
   function prom(a){ return a.length?(a.reduce(function(x,y){return x+y;},0)/a.length).toFixed(1):'-'; }
   function presP(a){ return a.length?Math.round(a.filter(Boolean).length/a.length*100):0; }
   var htmlO=Object.values(orgM).map(function(o){ var res=''; if(o.tipo==='conteo')res='Promedio: <strong>'+prom(o.vals)+'</strong> '+(o.u||'u')+'/pañada'; else if(o.tipo==='presencia')res='Presente en <strong>'+presP(o.pres)+'%</strong> de las pañadas'; else if(o.tipo==='inci')res='Incidencia: <strong>'+prom(o.incs)+'%</strong> · Severidad: <strong>'+prom(o.sevs)+'%</strong>'; return '<div class="obs-it"><div class="obs-dot '+(o.tipo==='inci'?'de':'dp')+'"></div><div><div style="font-size:14px;font-weight:600">'+o.nombre+'</div><div style="font-size:13px;color:var(--ts)">'+res+'</div></div></div>'; }).join('')||'<div style="padding:14px 16px;font-size:14px;color:var(--gm)">Sin hallazgos registrados</div>';
-  document.getElementById('contInforme').innerHTML='<div class="inf-s"><div class="inf-sh">📋 Datos del monitoreo</div><div class="inf-f"><span class="inf-fl">Cliente</span><span class="inf-fv">'+(cli?cli.nombre:'-')+'</span></div><div class="inf-f"><span class="inf-fl">Campo</span><span class="inf-fv">'+(cam?cam.nombre:'-')+'</span></div><div class="inf-f"><span class="inf-fl">Lote</span><span class="inf-fv">'+(lot?lot.nombre:'-')+(lot&&lot.ha?' ('+lot.ha+' ha)':'')+'</span></div><div class="inf-f"><span class="inf-fl">Cultivo</span><span class="inf-fv">'+(cult?cult.nombre:'-')+'</span></div><div class="inf-f"><span class="inf-fl">Fecha</span><span class="inf-fv">'+fF(ses.fecha)+'</span></div><div class="inf-f"><span class="inf-fl">Pañadas</span><span class="inf-fv">'+pans.length+'</span></div></div><div class="inf-s"><div class="inf-sh">🔬 Resultados</div>'+htmlO+'</div><div class="inf-s"><div class="inf-sh">📍 GPS</div>'+pans.map(function(p,i){ return '<div class="inf-f"><span class="inf-fl">Pañada #'+(i+1)+'</span><span class="inf-fv" style="font-size:12px;font-weight:400">'+(p.lat?p.lat.toFixed(5)+', '+p.lon.toFixed(5):'Sin GPS')+'</span></div>'; }).join('')+'</div>';
+  // Botón Google Maps
+  var conGPS = pans.filter(function(p){return p.lat&&p.lon;});
+  var mapaBtnHtml = '';
+  if (conGPS.length > 0) {
+    var gmUrl = '';
+    if (conGPS.length === 1) {
+      gmUrl = 'https://maps.google.com/?q='+conGPS[0].lat+','+conGPS[0].lon;
+    } else {
+      gmUrl = 'https://maps.google.com/maps/dir/'+conGPS.map(function(p){return p.lat+','+p.lon;}).join('/');
+    }
+    mapaBtnHtml = '<div style="padding:14px 16px"><a href="'+gmUrl+'" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#1a3a1a;color:white;padding:14px;border-radius:12px;text-decoration:none;font-size:15px;font-weight:700">🗺️ Ver pañadas en Google Maps</a></div>';
+  }
+
+  document.getElementById('contInforme').innerHTML='<div class="inf-s"><div class="inf-sh">📋 Datos del monitoreo</div><div class="inf-f"><span class="inf-fl">Cliente</span><span class="inf-fv">'+(cli?cli.nombre:'-')+'</span></div><div class="inf-f"><span class="inf-fl">Campo</span><span class="inf-fv">'+(cam?cam.nombre:'-')+'</span></div><div class="inf-f"><span class="inf-fl">Lote</span><span class="inf-fv">'+(lot?lot.nombre:'-')+(lot&&lot.ha?' ('+lot.ha+' ha)':'')+'</span></div><div class="inf-f"><span class="inf-fl">Cultivo</span><span class="inf-fv">'+(cult?cult.nombre:'-')+'</span></div><div class="inf-f"><span class="inf-fl">Fecha</span><span class="inf-fv">'+fF(ses.fecha)+'</span></div><div class="inf-f"><span class="inf-fl">Pañadas</span><span class="inf-fv">'+pans.length+'</span></div></div>'+mapaBtnHtml+'<div class="inf-s"><div class="inf-sh">🔬 Resultados</div>'+htmlO+'</div><div class="inf-s"><div class="inf-sh">📍 GPS</div>'+pans.map(function(p,i){ return '<div class="inf-f"><span class="inf-fl">Pañada #'+(i+1)+'</span><span class="inf-fv" style="font-size:12px;font-weight:400">'+(p.lat?p.lat.toFixed(5)+', '+p.lon.toFixed(5):'Sin GPS')+'</span></div>'; }).join('')+'</div>';
   // Esperar a que el DOM esté listo y la pantalla visible
 setTimeout(function(){ initMapaInforme(pans); }, 300);
 setTimeout(function(){ initMapaInforme(pans); }, 800);
