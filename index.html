@@ -915,71 +915,56 @@ function abrirInformeCompleto() {
 }
 
 // ═══ MAPA INFORME ═══
+var _pansGPS = [];
+
 function initMapaInforme(pans) {
+  var conGPS = pans.filter(function(p){ return p.lat && p.lon; });
+  _pansGPS = conGPS;
   var el = document.getElementById('mapaInforme');
   if (!el) return;
-  var conGPS = pans.filter(function(p){ return p.lat && p.lon; });
   if (!conGPS.length) { el.style.display='none'; return; }
   el.style.display = 'block';
-  el.style.height = '300px';
-  el.style.background = '#e8f5e8';
-  el.innerHTML = '';
-
-  // Destruir mapa anterior
-  if (window._mapaInf) { try { window._mapaInf.remove(); } catch(e){} window._mapaInf = null; }
-
-  // Crear contenedor con ID único
-  var mapId = 'mapa_' + Date.now();
-  var mapDiv = document.createElement('div');
-  mapDiv.id = mapId;
-  mapDiv.style.cssText = 'width:100%;height:300px;';
-  el.appendChild(mapDiv);
-
-  // Inicializar Leaflet después de que el DOM esté listo
-  requestAnimationFrame(function() {
-    requestAnimationFrame(function() {
+  
+  // Intentar mapa Leaflet
+  var wrap = document.getElementById('mapaLeafletWrap');
+  if (wrap) {
+    wrap.style.display = 'block';
+    setTimeout(function(){
       try {
+        if (window._mapaInf) { try{window._mapaInf.remove();}catch(e){} window._mapaInf=null; }
+        wrap.innerHTML = '';
+        var mapDiv = document.createElement('div');
+        mapDiv.style.cssText = 'width:100%;height:300px';
+        wrap.appendChild(mapDiv);
         var latC = conGPS.reduce(function(a,p){return a+p.lat;},0)/conGPS.length;
         var lonC = conGPS.reduce(function(a,p){return a+p.lon;},0)/conGPS.length;
-        
-        var m = L.map(mapId, {
-          zoomControl: true,
-          attributionControl: false,
-          preferCanvas: true
-        });
-        
+        var m = L.map(mapDiv, {zoomControl:true, attributionControl:false, preferCanvas:true});
         m.setView([latC, lonC], 14);
         window._mapaInf = m;
-        
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          subdomains: ['a','b','c']
-        }).addTo(m);
-        
-        conGPS.forEach(function(p, i) {
-          var icon = L.divIcon({
-            html: '<div style="background:#1a3a1a;color:white;width:30px;height:30px;border-radius:50%;line-height:30px;text-align:center;font-size:14px;font-weight:700;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.5)">'+(i+1)+'</div>',
-            iconSize: [30,30],
-            iconAnchor: [15,15],
-            className: ''
-          });
-          L.marker([p.lat, p.lon], {icon: icon}).addTo(m)
-            .bindPopup('<b>Pañada #'+(i+1)+'</b><br>'+fH(p.fecha)+(p.notas?'<br>'+p.notas:''));
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, subdomains:['a','b','c']}).addTo(m);
+        conGPS.forEach(function(p,i){
+          var icon = L.divIcon({html:'<div style="background:#1a3a1a;color:white;width:30px;height:30px;border-radius:50%;line-height:30px;text-align:center;font-size:14px;font-weight:700;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.5)">'+(i+1)+'</div>',iconSize:[30,30],iconAnchor:[15,15],className:''});
+          L.marker([p.lat,p.lon],{icon:icon}).addTo(m).bindPopup('<b>Pañada #'+(i+1)+'</b><br>'+fH(p.fecha));
         });
-        
-        if (conGPS.length > 1) {
-          m.fitBounds(conGPS.map(function(p){return[p.lat,p.lon];}), {padding:[40,40]});
-        }
-        
-        setTimeout(function(){ m.invalidateSize(); }, 100);
-        setTimeout(function(){ m.invalidateSize(); }, 500);
-        setTimeout(function(){ m.invalidateSize(); }, 1000);
-      } catch(e) {
-        console.error('Error mapa:', e);
-        el.innerHTML = '<div style="height:300px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#555"><span style="font-size:24px">📍</span><span style="font-size:13px">'+conGPS.length+' pañadas registradas con GPS</span>'+conGPS.map(function(p,i){return'<span style="font-size:12px;color:#888">'+i+1+'. '+p.lat.toFixed(4)+', '+p.lon.toFixed(4)+'</span>';}).join('')+'</div>';
-      }
-    });
-  });
+        if(conGPS.length>1){m.fitBounds(conGPS.map(function(p){return[p.lat,p.lon];}),{padding:[40,40]});}
+        setTimeout(function(){m.invalidateSize();},200);
+        setTimeout(function(){m.invalidateSize();},800);
+      } catch(e) { console.log('mapa error:', e); }
+    }, 800);
+  }
+}
+
+function abrirGoogleMaps() {
+  if (!_pansGPS.length) return;
+  if (_pansGPS.length === 1) {
+    var url = 'https://maps.google.com/?q=' + _pansGPS[0].lat + ',' + _pansGPS[0].lon;
+    window.open(url, '_blank');
+    return;
+  }
+  // Múltiples puntos: usar waypoints
+  var base = 'https://maps.google.com/maps/dir/';
+  var puntos = _pansGPS.map(function(p){ return p.lat+','+p.lon; }).join('/');
+  window.open(base + puntos, '_blank');
 }
 
 
