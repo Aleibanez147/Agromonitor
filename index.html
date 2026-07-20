@@ -920,48 +920,66 @@ function initMapaInforme(pans) {
   if (!el) return;
   var conGPS = pans.filter(function(p){ return p.lat && p.lon; });
   if (!conGPS.length) { el.style.display='none'; return; }
-  
   el.style.display = 'block';
-  
-  // Calcular centro
-  var latC = conGPS.reduce(function(a,p){return a+p.lat;},0) / conGPS.length;
-  var lonC = conGPS.reduce(function(a,p){return a+p.lon;},0) / conGPS.length;
-  
-  // Construir markers para la URL
-  var markersStr = conGPS.map(function(p, i) {
-    return 'pin-s-' + (i+1) + '+1a3a1a(' + p.lon + ',' + p.lat + ')';
-  }).join(',');
-  
-  // URL de mapa estático via Mapbox (gratis sin key para mapas simples)
-  // Usar OpenStreetMap embed alternativo
-  var bbox = calcBbox(conGPS);
-  var osmUrl = 'https://www.openstreetmap.org/export/embed.html?bbox='
-    + bbox + '&layer=mapnik&marker=' + latC + '%2C' + lonC;
-  
-  // Mostrar iframe de OSM con los puntos
-  var pinsHtml = '<div style="position:relative;width:100%;height:100%">'
-    + '<iframe src="' + osmUrl + '" style="width:100%;height:100%;border:none"></iframe>'
-    + '<div style="position:absolute;top:8px;left:8px;background:rgba(26,58,26,.9);color:white;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:600">📍 '
-    + conGPS.length + ' pañada' + (conGPS.length!==1?'s':'') + '</div>'
-    + '<div style="position:absolute;bottom:8px;left:8px;background:white;border-radius:8px;padding:6px 10px;font-size:11px;max-width:280px">'
-    + conGPS.map(function(p,i){ return '<span style="display:inline-block;background:#1a3a1a;color:white;border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;font-size:11px;font-weight:700;margin-right:4px">'+(i+1)+'</span> '+fH(p.fecha); }).join(' &nbsp; ')
-    + '</div>'
-    + '</div>';
-  
-  el.innerHTML = pinsHtml;
-}
+  el.style.height = '300px';
+  el.style.background = '#e8f5e8';
+  el.innerHTML = '';
 
-function calcBbox(points) {
-  var lats = points.map(function(p){return p.lat;});
-  var lons = points.map(function(p){return p.lon;});
-  var minLat = Math.min.apply(null,lats);
-  var maxLat = Math.max.apply(null,lats);
-  var minLon = Math.min.apply(null,lons);
-  var maxLon = Math.max.apply(null,lons);
-  // Agregar padding
-  var padLat = Math.max((maxLat-minLat)*0.3, 0.005);
-  var padLon = Math.max((maxLon-minLon)*0.3, 0.005);
-  return (minLon-padLon).toFixed(5)+','+(minLat-padLat).toFixed(5)+','+(maxLon+padLon).toFixed(5)+','+(maxLat+padLat).toFixed(5);
+  // Destruir mapa anterior
+  if (window._mapaInf) { try { window._mapaInf.remove(); } catch(e){} window._mapaInf = null; }
+
+  // Crear contenedor con ID único
+  var mapId = 'mapa_' + Date.now();
+  var mapDiv = document.createElement('div');
+  mapDiv.id = mapId;
+  mapDiv.style.cssText = 'width:100%;height:300px;';
+  el.appendChild(mapDiv);
+
+  // Inicializar Leaflet después de que el DOM esté listo
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      try {
+        var latC = conGPS.reduce(function(a,p){return a+p.lat;},0)/conGPS.length;
+        var lonC = conGPS.reduce(function(a,p){return a+p.lon;},0)/conGPS.length;
+        
+        var m = L.map(mapId, {
+          zoomControl: true,
+          attributionControl: false,
+          preferCanvas: true
+        });
+        
+        m.setView([latC, lonC], 14);
+        window._mapaInf = m;
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          subdomains: ['a','b','c']
+        }).addTo(m);
+        
+        conGPS.forEach(function(p, i) {
+          var icon = L.divIcon({
+            html: '<div style="background:#1a3a1a;color:white;width:30px;height:30px;border-radius:50%;line-height:30px;text-align:center;font-size:14px;font-weight:700;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.5)">'+(i+1)+'</div>',
+            iconSize: [30,30],
+            iconAnchor: [15,15],
+            className: ''
+          });
+          L.marker([p.lat, p.lon], {icon: icon}).addTo(m)
+            .bindPopup('<b>Pañada #'+(i+1)+'</b><br>'+fH(p.fecha)+(p.notas?'<br>'+p.notas:''));
+        });
+        
+        if (conGPS.length > 1) {
+          m.fitBounds(conGPS.map(function(p){return[p.lat,p.lon];}), {padding:[40,40]});
+        }
+        
+        setTimeout(function(){ m.invalidateSize(); }, 100);
+        setTimeout(function(){ m.invalidateSize(); }, 500);
+        setTimeout(function(){ m.invalidateSize(); }, 1000);
+      } catch(e) {
+        console.error('Error mapa:', e);
+        el.innerHTML = '<div style="height:300px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#555"><span style="font-size:24px">📍</span><span style="font-size:13px">'+conGPS.length+' pañadas registradas con GPS</span>'+conGPS.map(function(p,i){return'<span style="font-size:12px;color:#888">'+i+1+'. '+p.lat.toFixed(4)+', '+p.lon.toFixed(4)+'</span>';}).join('')+'</div>';
+      }
+    });
+  });
 }
 
 
